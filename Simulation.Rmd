@@ -1,0 +1,121 @@
+---
+title: "Simulation"
+author: "Adriano Martinelli"
+date: "14/12/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(SingleCellExperiment)
+library(scater)
+library(ggplot2)
+library(gridExtra)
+library(grid)
+library(muscat)
+sce <- readRDS("Zheng4eq.filt.wPCA.rds")
+
+#Add normalised counts
+sce = logNormCounts(sce)
+```
+
+## Create correlation structure
+```{r}
+library("irlba")
+sce <- sce[, sce$phenoid == 'b.cells']
+
+# Select kNN = 20 nearest neighbors for each cell
+kNN <- 20
+N<-10
+n_comp = 50
+n_treated = floor(985/2)
+n_ntreated = 985 - n_treated
+n_cells = n_treated + n_ntreated
+
+if(n_cells <= dim(sce)[2]){
+  idx_cells = sample(c(1:dim(sce)[2]), n_cells, replace = FALSE)
+}else{
+  idx_cells = sample(c(1:dim(sce)[2]), n_cells, replace = TRUE)
+}
+
+pca_data <- prcomp_irlba(t(logcounts(sce)),n = n_comp)
+
+#Create distance matrix
+distance_matrix<-as.matrix(dist(pca_data$x,method="euclidean"))
+diag(distance_matrix) = Inf
+
+#Sort distance matric by row
+sorted_distances <- apply(distance_matrix,1,function(x) sort(x, index.return = T)$ix)
+
+# Select random subsample of neighbors (N=10) from the kNN and average them per PCA dimention
+#w_clustered <- apply(sorted_distances,2,function (d) {
+#  cell_neighbors <- sample(d[1:kNN], N, replace = TRUE)
+#  colMeans(pca_data$x[cell_neighbors,])
+#  })
+
+# Select random subsample of neighbors (N=10) from the kNN and average them per PCA dimention
+w_clustered <- sapply(idx_cells, function (idx) {
+  d = sorted_distances[idx,1:kNN]
+  cell_neighbors <- sample(d, N, replace = TRUE)
+  colMeans(pca_data$x[cell_neighbors,])
+  })
+
+w_clustered = t(w_clustered)
+
+#TODO check transpose https://stackoverflow.com/questions/29783790/how-to-reverse-pca-in-prcomp-to-get-original-data
+expression_matrix <- w_clustered  %*% t(pca_data$rotation) + pca_data$center
+expression_matrix <- t(expression_matrix)
+dim(expression_matrix)
+
+```
+
+## Logfold change
+```{r}
+#Define amount of DE genes
+DE_portion = 0.01
+
+#Define logfold change for (not) DE genes
+fc = 0
+DE_fc = 4
+
+#select DE genes
+idx = sample(c(1:dim(sce)[1]), floor(DE_portion*dim(sce)[1]))
+log2FC = rep(fc, dim(sce)[1])
+log2FC[idx] = DE_fc 
+```
+
+## Calculate dispersion
+```{r}
+library(edgeR)
+dds <- DGEList(counts(sce))
+mm <- model.matrix(~1, data=as.data.frame(colData(sce)))
+dds <- estimateDisp(dds, mm)
+rowData(sce)$dispersion <- dds$tagwise.dispersion
+```
+
+```{r}
+split_ratio = 0.5
+
+#TODO set library size
+colD = data.frame('cluster_id' = 'b.cells',
+                  'treatment' = c(rep(1, n_treated), rep(0, n_ntreated)),
+                  'library_size' = NA)
+rowD = data.frame('logFC' = log2FC, 'Dispersion' = dds$tagwise.dispersion)
+```
+
+
+```{r}
+sce_sim <- SingleCellExperiment(assays = list(logcounts = expression_matrix,
+                                              counts = 2^expression_matrix))
+colData(sce_sim) =  cbind(colData(sce_sim), colD)
+rowData(sce_sim) = cbind(rowData(sce_sim), rowD)
+```
+
+
+```{r}
+#assay(sce_sim, 'counts_sim') = MATRIX OF SIMULATED COUNTS
+```
+
