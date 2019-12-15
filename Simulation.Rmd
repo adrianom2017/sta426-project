@@ -1,6 +1,6 @@
 ---
 title: "Simulation"
-author: "Adriano Martinelli"
+author: "Adriano Martinelli, Iliana Papadopoulou, Chrysa Papadopoulou"
 date: "14/12/2019"
 output: html_document
 ---
@@ -112,10 +112,21 @@ sce_sim <- SingleCellExperiment(assays = list(logcounts = expression_matrix,
                                               counts = 2^expression_matrix))
 colData(sce_sim) =  cbind(colData(sce_sim), colD)
 rowData(sce_sim) = cbind(rowData(sce_sim), rowD)
+
+rownames(sce_sim)<-rownames(sce)
+colnames(sce_sim)<-colnames(sce)
 ```
 
-
+## Calculate count matrix via NB distribution
 ```{r}
-#assay(sce_sim, 'counts_sim') = MATRIX OF SIMULATED COUNTS
+ds = rep(rowData(sce_sim)$Dispersion, each = ncol(sce_sim)) 
+mu = c(t(2^(expression_matrix))) * (2^rowData(sce_sim)$logFC)
+counts =  rnbinom(n=nrow(sce_sim)*ncol(sce_sim),size=ds,mu=mu)
+counts = matrix(counts,nrow = nrow(sce_sim),ncol = ncol(sce_sim))
+counts(sce_sim) =  counts
 ```
 
+## Calculate library size
+```{r}
+colData(sce_sim)$library_size <- colSums(counts)
+```
