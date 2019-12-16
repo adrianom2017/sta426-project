@@ -29,7 +29,7 @@ sce <- sce[, sce$phenoid == 'b.cells']
 
 # Select kNN = 20 nearest neighbors for each cell
 kNN <- 20
-N<-10
+N<-3
 n_comp = 50
 n_treated = floor(985/2)
 n_ntreated = 985 - n_treated
@@ -66,8 +66,7 @@ w_clustered <- sapply(idx_cells, function (idx) {
 w_clustered = t(w_clustered)
 
 #TODO check transpose https://stackoverflow.com/questions/29783790/how-to-reverse-pca-in-prcomp-to-get-original-data
-expression_matrix <- w_clustered  %*% t(pca_data$rotation) + pca_data$center
-expression_matrix <- t(expression_matrix)
+expression_matrix <- t(w_clustered  %*% t(pca_data$rotation)) + pca_data$center
 dim(expression_matrix)
 
 ```
@@ -108,25 +107,64 @@ rowD = data.frame('logFC' = log2FC, 'Dispersion' = dds$tagwise.dispersion)
 
 
 ```{r}
+#TODO: How to deal with the +1 in the logtransform?
+c = 2^expression_matrix - 1
+
 sce_sim <- SingleCellExperiment(assays = list(logcounts = expression_matrix,
-                                              counts = 2^expression_matrix))
+                                              counts = c))
 colData(sce_sim) =  cbind(colData(sce_sim), colD)
 rowData(sce_sim) = cbind(rowData(sce_sim), rowD)
 
 rownames(sce_sim)<-rownames(sce)
-colnames(sce_sim)<-colnames(sce)
+cell_id <-colnames(sce)[idx_cells]
+colData(sce_sim) = cbind(colData(sce_sim), cell_id)
 ```
 
 ## Calculate count matrix via NB distribution
 ```{r}
 ds = rep(rowData(sce_sim)$Dispersion, each = ncol(sce_sim)) 
-mu = c(t(2^(expression_matrix))) * (2^rowData(sce_sim)$logFC)
-counts =  rnbinom(n=nrow(sce_sim)*ncol(sce_sim),size=ds,mu=mu)
-counts = matrix(counts,nrow = nrow(sce_sim),ncol = ncol(sce_sim))
-counts(sce_sim) =  counts
+
+#TODO: why do you transpose?
+mu = c(counts(sce_sim)) * 2^rowData(sce_sim)$logFC
+
+#TODO: How to use the dispersion param?
+counts =  rnbinom(n=nrow(sce_sim)*ncol(sce_sim), size=ds, mu=mu)
+counts = matrix(counts, nrow = nrow(sce_sim),ncol = ncol(sce_sim))
+assay(sce_sim, 'sim_counts') = counts
+
+#x = seq(0:100)
+#qplot(x, dnbinom(x,size = ds[1], mu = mu[1]))
 ```
 
 ## Calculate library size
 ```{r}
-colData(sce_sim)$library_size <- colSums(counts)
+colData(sce_sim)$library_size <- colSums(assay(sce_sim, 'sim_counts'))
 ```
+
+## DE analysis, edgeR
+```{r}
+#TODO: How to get samples, how many samples should we simulate.
+library(limma)
+library(edgeR)
+
+grp = colData(sce_sim)$treatment
+grp = factor(grp)
+
+y <- DGEList(counts=assay(sce_sim, 'sim_counts'),group=grp)
+y <- calcNormFactors(y)
+design <- model.matrix(~grp)
+
+y <- estimateDisp(y,design)
+
+#To perform likelihood ratio tests:
+fit <- glmFit(y,design)
+lrt <- glmLRT(fit,coef=2)
+topTags(lrt)
+```
+## DE analysis, limma
+```{r}
+
+
+
+```
+
