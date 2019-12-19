@@ -29,8 +29,8 @@ sce <- sce[, sce$phenoid == 'b.cells']
 
 # Select kNN = 20 nearest neighbors for each cell
 kNN <- 20
-N<-3
-n_comp = 50
+N<-5
+n_comp = 50 #TODO choose n_comp based on PCA, intrinsicDimensions --> function: maxgloballikelihood
 n_treated = floor(985/2)
 n_ntreated = 985 - n_treated
 n_cells = n_treated + n_ntreated
@@ -80,6 +80,8 @@ DE_portion = 0.01
 fc = 0
 DE_fc = 4
 
+#TODO fun should accept list of logFC
+
 #select DE genes
 idx = sample(c(1:dim(sce)[1]), floor(DE_portion*dim(sce)[1]))
 log2FC = rep(fc, dim(sce)[1])
@@ -96,8 +98,6 @@ rowData(sce)$dispersion <- dds$tagwise.dispersion
 ```
 
 ```{r}
-split_ratio = 0.5
-
 #TODO set library size
 colD = data.frame('cluster_id' = 'b.cells',
                   'treatment' = c(rep(1, n_treated), rep(0, n_ntreated)),
@@ -117,7 +117,7 @@ rowData(sce_sim) = cbind(rowData(sce_sim), rowD)
 
 rownames(sce_sim)<-rownames(sce)
 cell_id <-colnames(sce)[idx_cells]
-colData(sce_sim) = cbind(colData(sce_sim), cell_id)
+colData(sce_sim) = cbind(colData(sce_sim), cell_id) #TODO append .#
 ```
 
 ## Calculate count matrix via NB distribution
@@ -128,12 +128,14 @@ ds = rep(rowData(sce_sim)$Dispersion, each = ncol(sce_sim))
 mu = c(counts(sce_sim)) * 2^rowData(sce_sim)$logFC
 
 #TODO: How to use the dispersion param?
-counts =  rnbinom(n=nrow(sce_sim)*ncol(sce_sim), size=ds, mu=mu)
+counts =  rnbinom(n=nrow(sce_sim)*ncol(sce_sim), size=1/ds, mu=mu)
 counts = matrix(counts, nrow = nrow(sce_sim),ncol = ncol(sce_sim))
 assay(sce_sim, 'sim_counts') = counts
 
 #x = seq(0:100)
 #qplot(x, dnbinom(x,size = ds[1], mu = mu[1]))
+
+#TODO scatter plot of expected mean vs observed mean.
 ```
 
 ## Calculate library size
@@ -144,6 +146,32 @@ colData(sce_sim)$library_size <- colSums(assay(sce_sim, 'sim_counts'))
 ## DE analysis, edgeR
 ```{r}
 #TODO: How to get samples, how many samples should we simulate.
+
+# Data set: week13
+# params: 
+# - kNN
+# - #samples per group (treatment)
+# - #n_comp or estimation
+# - #subset of knn
+# - magnitute logFC + proportion or list of logFC half of it should be inversed.
+
+# aggregateData -> pbDS(method=edgeR)
+#  - sum counts
+#  - mean of logcounts
+# aggregateData (sum counts)-> pbDS(method="limma-voom")
+# mmDS(method="dream")
+# mmDS(method="vst")
+# mmDS(method="nbinom")
+
+# Compare DE results 
+# Compare ranking of simulations
+# Upset 
+# TPR-FDR
+
+# Comparison of data sets
+# t-SNE --> scater Run tsne
+# countSimQC package
+
 library(limma)
 library(edgeR)
 
