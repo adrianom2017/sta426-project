@@ -25,6 +25,7 @@ sce = logNormCounts(sce)
 ## Create correlation structure
 ```{r}
 library("irlba")
+library(intrinsicDimension)
 sce <- sce[, sce$phenoid == 'b.cells']
 
 # Select kNN = 20 nearest neighbors for each cell
@@ -189,8 +190,32 @@ fit <- glmFit(y,design)
 lrt <- glmLRT(fit,coef=2)
 topTags(lrt)
 ```
-## DE analysis, limma
+
+## SCE_SIM workflow
 ```{r}
+library(SingleCellExperiment)
+library(scater)
+library(ggplot2)
+library(gridExtra)
+library(grid)
+library(edgeR)
+library(irlba)
+library(muscat)
+
+sce = readRDS("week13_SCE_clustered.rds")
+sce = logNormCounts(sce)
+
+n_comp = 10
+n_cells = 100
+kNN = 10
+kNN_subsample = 5
+n_samples = 2
+logFC = list(magnitude = 4, proportion = 0.01)
+
+sce_sim = create_dataset(sce, n_comp, n_cells, kNN, kNN_subsample, n_samples, logFC)
+
+
+
 
 
 
