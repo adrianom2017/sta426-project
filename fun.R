@@ -2,8 +2,8 @@
 #data, n_treated, n_untreated, samples_treated, samples_untreated, n_comp / or auto, logFC magnitude + portion / list
 
 create_dataset = function(sce, n_comp, n_cells, kNN, kNN_subsample, n_samples, logFC){
-
-  samples = unique(colData(sce)[colData(sce)$group_id == "WT",]$sample_id)
+  
+  samples = unique(colData(sce)$sample_id)
   
   #Sanity checks
   if(length(samples) < n_samples){
@@ -13,7 +13,7 @@ create_dataset = function(sce, n_comp, n_cells, kNN, kNN_subsample, n_samples, l
   if(length(n_cells) == 1){
     n_cells = rep(n_cells, length(samples))
   }else{
-    if(!length(n_cells) == n_samples){
+    if(!(length(n_cells) == n_samples)){
       stop("Lenght of n_cells vector not the same as n_samples")
     }
   }
@@ -34,15 +34,17 @@ create_dataset = function(sce, n_comp, n_cells, kNN, kNN_subsample, n_samples, l
   }
   
   #TODO
-  sce_sim = SingleCellExperiment(list(logcounts_sim = matrix(nrow = nrow(sce), ncol = 100)))
-  colData(sce_sim) = data.frame(matrix(nrow = nrow(sce), ncol = 0))
+  sce_sim = SingleCellExperiment(list(logcounts_sim = matrix(nrow = nrow(sce), ncol = 0)))
+  colD = data.frame(matrix(nrow = 0, ncol = 3))
+  names(colD) = c("cluster_id","sample_id","cell_id")
   
   for(i in 1:length(samples)){
     sample_sce = create_sample(sce[, colData(sce)$sample_id == samples[i]], n_comp, n_cells[i], kNN, kNN_subsample)
-    colD = colData(sce_sim)
     sce_sim = SingleCellExperiment(list(logcounts_sim = cbind(assay(sce_sim, 'logcounts_sim'), assay(sample_sce, 'logcounts_sim'))))
-    colData(sce_sim) = rbind(colD, colData(sample_sce))
+    colD = rbind(colD, colData(sample_sce))
   }
+  
+  colData(sce_sim) = cbind(colData(sce_sim),colD)
   
   #Compute dispersion of genes
   dispresion = compute_dispresion(sce)
@@ -55,7 +57,7 @@ create_dataset = function(sce, n_comp, n_cells, kNN, kNN_subsample, n_samples, l
   rowData(sce_sim) = cbind(rowData(sce_sim), rowD)
   
   #Add counts
-  #TODO how to transfom
+  #TODO how to trainsfom
   tmp = 2^logcounts(sce_sim) - 1
   tmp[tmp < 0 ] = 0
   counts(sce_sim) = tmp
