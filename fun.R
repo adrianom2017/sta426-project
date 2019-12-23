@@ -41,7 +41,7 @@ create_dataset = function(sce, n_comp, n_cells, kNN, kNN_subsample, n_samples, l
     sample_sce = create_sample(sce[, colData(sce)$sample_id == samples[i]], n_comp, n_cells[i], kNN, kNN_subsample)
     colD = colData(sce_sim)
     sce_sim = SingleCellExperiment(list(logcounts_sim = cbind(assay(sce_sim, 'logcounts_sim'), assay(sample_sce, 'logcounts_sim'))))
-    colData(sce_sim) = cbind(colD, colData(sample_sce))
+    colData(sce_sim) = rbind(colD, colData(sample_sce))
   }
   
   #Compute dispersion of genes

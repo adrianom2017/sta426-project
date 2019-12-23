@@ -214,10 +214,5 @@ logFC = list(magnitude = 4, proportion = 0.01)
 
 sce_sim = create_dataset(sce, n_comp, n_cells, kNN, kNN_subsample, n_samples, logFC)
 
-
-
-
-
-
 ```
 
