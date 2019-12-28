@@ -5,11 +5,11 @@ create_dataset = function(sce, n_comp, n_cells, kNN, kNN_subsample, n_samples, l
   
   samples = unique(colData(sce)$sample_id)
   
-  if(kNN <= kNN_subsample){
+  #Sanity checks
+  {if(kNN <= kNN_subsample){
     warning("Number of kNN_subsample larger or equal to kNN")
   }
   
-  #Sanity checks
   if(length(samples) < n_samples){
     stop("Number of samples in original data set smaller than n_samples")
   }
@@ -34,10 +34,9 @@ create_dataset = function(sce, n_comp, n_cells, kNN, kNN_subsample, n_samples, l
     }
   }else if(length(logFC) != 1 | length(logFC) != 2){
       stop("length of logFC list argument has to be 2 (with magnitue and proportion) or 1 (vector of logFCs)")
-  }
+  }}
   
-  #TODO
-  sce_sim = SingleCellExperiment(list(logcounts_sim = matrix(nrow = nrow(sce), ncol = 0)))
+  sce_sim = SingleCellExperiment(list(logcounts = matrix(nrow = nrow(sce), ncol = 0)))
   colD = data.frame(matrix(nrow = 0, ncol = 4))
   names(colD) = c("cluster_id","sample_id","cell_id", "library.size")
   
@@ -46,22 +45,25 @@ create_dataset = function(sce, n_comp, n_cells, kNN, kNN_subsample, n_samples, l
       print(paste("Sample", i, "is computed"))
     }
     sample_sce = create_sample(sce[, colData(sce)$sample_id == samples[i]], n_comp, n_cells[i], kNN, kNN_subsample, verbose)
-    sce_sim = SingleCellExperiment(list(logcounts_sim = cbind(assay(sce_sim, 'logcounts'), assay(sample_sce, 'logcounts_sim'))))
+    sce_sim = SingleCellExperiment(list(logcounts = cbind(assay(sce_sim, 'logcounts'), assay(sample_sce, 'logcounts_sim'))))
     colD = rbind(colD, colData(sample_sce))
   }
   
   colData(sce_sim) = cbind(colData(sce_sim),colD)
   
   #Determine group of cell (either de or ee) and library size
-  if(length(logFC) == 2){
-    category = data.frame(category = sample(c("de", "ee"), replace = TRUE, size = sum(n_cells), prob = c(probs[[3]], 1-probs[[3]])))}
-  else{
-    category = logFC
-  }
-  colData(sce_sim) = cbind(colData(sce_sim), category)
+  category = data.frame(category = sample(c("de", "ee"), replace = TRUE, size = sum(n_cells), prob = probs[[3]]))
+  group_id = c()
+  group_id[category == "ee"] = "A"
+  group_id[category == "de"] = "B"
+  group_id = factor(group_id)
+  colData(sce_sim) = cbind(colData(sce_sim), category, group_id)
+  
+  #Correct sample_id to incorporate group tag
   colData(sce_sim)$sample_id = paste(colData(sce_sim)$sample_id, colData(sce_sim)$category, sep = ".")
   
   #Compute dispersion of genes
+  if(verbose >= 1){print("Compute gene-wise dispersion")}
   if("dispersion" %in% names(rowData(sce))){
     dispersion = rowData(sce)$dispersion
   }else{
@@ -69,7 +71,11 @@ create_dataset = function(sce, n_comp, n_cells, kNN, kNN_subsample, n_samples, l
     }
   
   #Compute logFC for each gene
-  lFC = compute_logFC(sce, logFC)
+  if(length(logFC) == 1){
+    lFC = logFC[[1]]
+  }else{
+    lFC = compute_logFC(sce, logFC)
+  }
   
   #Create SingleCellExperiment object
   rowD = data.frame(gene_id = rownames(sce), logFC = lFC, dispersion = dispersion)
@@ -84,6 +90,27 @@ create_dataset = function(sce, n_comp, n_cells, kNN, kNN_subsample, n_samples, l
   #Compute the counts from NB
   sce_sim = nb_counts(sce_sim)
   sce_sim = logNormCounts(sce_sim)
+  
+  #Create meta data
+  experiment_info = data.frame(sample_id = unique(colData(sce_sim)$sample_id))
+  group_id = sapply(strsplit(as.vector(experiment_info$sample_id), ".", fixed = TRUE), function(x) x[[2]])
+  group_id[group_id == "ee"] = "A"
+  group_id[group_id == "de"] = "B"
+  experiment_info = cbind(experiment_info, group_id)
+  
+  n_cells = table(colData(sce_sim)$sample_id)
+  
+  gene_info = data.frame(gene = paste("gene", 1:nrow(sce_sim), sep = ""),
+                         sim_gene = rowData(sce_sim)$gene_id,
+                         logFC = rowData(sce_sim)$logFC)
+  
+  cell_info = data.frame(cell = paste("cell", 1:ncol(sce_sim), sep = ""),
+                         sim_cell = colData(sce_sim)$cell_id)
+  
+  metadata(sce_sim) = list("experiment_info" = experiment_info, "n_cells" = n_cells, "gene_info" = gene_info, "cell_info" = cell_info)
+  
+  colnames(sce_sim) = paste("cell", 1:ncol(sce_sim), sep = "")
+  rownames(sce_sim) = paste("gene", 1:nrow(sce_sim), sep = "")
   
   return(sce_sim)
 }

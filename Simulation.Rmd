@@ -191,8 +191,9 @@ lrt <- glmLRT(fit,coef=2)
 topTags(lrt)
 ```
 
-## SCE_SIM workflow
+## Load data
 ```{r}
+suppressPackageStartupMessages({
 library(SingleCellExperiment)
 library(scater)
 library(ggplot2)
@@ -201,6 +202,7 @@ library(grid)
 library(edgeR)
 library(irlba)
 library(muscat)
+library(countsimQC)})
 
 #Load object
 sce = readRDS("week13_SCE_clustered.rds")
@@ -246,11 +248,15 @@ verbose = 2
 #Run simulations
 sce_muscat = simData(sce_prep, n_genes = n_genes, n_cells = n_cells_muscat, p_dd = p_dd, probs = probs)
 sce_sim = create_dataset(sce_prep, n_comp, n_cells, kNN, kNN_subsample, n_sample, logFC, probs, verbose)
-
 ```
 
-
+## Augment data sets
 ```{r}
+#Convert counts
+sce_muscat = logNormCounts(sce_muscat)
+logcounts(sce_prep) = as.matrix(logcounts(sce_prep))
+counts(sce_prep) = as.matrix(counts(sce_prep))
+
 #Populate sce_sim with reducedDim
 sce_sim = runPCA(sce_sim)
 sce_sim = runUMAP(sce_sim)
@@ -262,25 +268,72 @@ sce_muscat = runUMAP(sce_muscat)
 sce_muscat = runTSNE(sce_muscat)
 
 #Populate sce_wt with reducedDim
-sce_wt = runPCA(sce_wt)
-sce_wt = runUMAP(sce_wt)
-sce_wt = runTSNE(sce_wt)
+sce_prep = runPCA(sce_prep)
+sce_prep = runUMAP(sce_prep)
+sce_prep = runTSNE(sce_prep)
+```
+
+## Compare simulations
+```{r}
+subsample = sample(1:ncol(sce_prep), ncol(sce_sim))
+  
+#Distribution of counts
+par(mfrow=c(3,1))
+hist(logcounts(sce_prep)[sample(1:nrow(sce_prep), nrow(sce_sim))])
+hist(logcounts(sce_muscat))
+hist(logcounts(sce_sim))
+
+#Sum of counts
+countSum = data.frame(sce_prep = sum(counts(sce_prep)[,subsample]),
+                      sce_muscat = sum(counts(sce_muscat)),
+                      sce_sim = sum(counts(sce_sim)))
+barplot(as.matrix(countSum), main = "Count sum of different SingleCellExperiment data sets")
+
+#Plot dim reductions
+par(mfrow=c(3,1))
+plotReducedDim(sce_prep, "PCA", colour_by = "cluster_id")
+plotReducedDim(sce_muscat, "PCA", colour_by = "cluster_id", shape_by = "group_id")
+plotReducedDim(sce_sim, "PCA", colour_by = "cluster_id", shape_by = "group_id")
+
+par(mfrow=c(3,1))
+plotReducedDim(sce_prep, "UMAP", colour_by = "cluster_id")
+plotReducedDim(sce_muscat, "UMAP", colour_by = "cluster_id", shape_by = "group_id")
+plotReducedDim(sce_sim, "UMAP", colour_by = "cluster_id", shape_by = "group_id")
+
+par(mfrow=c(3,1))
+plotReducedDim(sce_prep, "TSNE", colour_by = "cluster_id")
+plotReducedDim(sce_muscat, "TSNE", colour_by = "cluster_id", shape_by = "group_id")
+plotReducedDim(sce_sim, "TSNE", colour_by = "cluster_id", shape_by = "group_id")
+
+#Cell-cell correlation structure
+CellCellCor = list("sce_prep" = cor(counts(sce_prep)[,subsample]),
+                   "sce_muscat" = cor(counts(sce_muscat)),
+                   "sce_sim" = cor(counts(sce_sim)))
+
+x = 1:ncol(sce_muscat)
+par(mfrow = c()mar = c(5,6,6,4), cex = 0.5)
+image(x,x,CellCellCor$sce_muscat, axes = FALSE, xlab = '', ylab = '')
+
+#Gene-Gene correlation structure
+#GeneGeneCor = list("sce_prep" = cor(t(counts(sce_prep)[,subsample])),
+#                   "sce_muscat" = cor(t(counts(sce_muscat))),
+#                   "sce_sim" = cor(t(counts(sce_sim))))
+
+# x = 1:nrow(sce_muscat)
+# par(mar = c(5,6,6,4), cex = 0.5)
+# image(x,x,GeneGeneCor$sce_muscat, axes = FALSE, xlab = '', ylab = '')
+
 ```
 
 ## Compare sim and original data
 ```{r}
 #TODO countSimQC package
-
-
 ```
 
 
 ## DE analysis
 ```{r}
 #TODO implement your functions
-
-
-
 ```
 
 ## Plots

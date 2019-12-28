@@ -10,19 +10,187 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 # Introduction
-The aim of this project is to extend the simulation framework established in the group Prof. Mark Robinson in collaboration with Pierre Luc Germain. More precisely the ``muscat`` simulation framework currently used in the group does not take gene-gene correlation into account. It is well known that gene-gene correlation is observed in real world data sets and we want to extend the framework such that the simulation framework respects this correlation. 
+The aim of this project is to extend the simulation framework established in the group Prof. Mark Robinson in collaboration with Pierre Luc Germain. More precisely the ``muscat`` simulation framework currently used in the group does not take gene-gene correlation into account and it is suspected that this may bias the evaluation of downstream analysis techniques. It is well known that gene-gene correlation is observed in real world data sets and we want to explore the effect of gene-gene correlation on the differential expression (DE) analysis.
 
 ## Describe data set
-## TODO
+### TODO
 
 # Results
 
 # Methods
 ## Simulation
-## TODO Adriano
+We created a simulation framework that produces a correlation structure in the simulated counts to explore the effect of such correlation on analysis techniques. To make our results comprable to existing methods (muscat simulation framework) we tried to produce a simulation that allows us to generate data sets with similar characteristics as the muscat framework in terms of number of cells, number of samples, number of cluster and the distribution of those cells across samples and clusters. The typical input data set is a ``SingleCellExperiment`` file which consits of multiple wild types samples containing multiple cell types.
+
+The pipeline of the simulation is:
+* Generate correlation structure reflected in mean counts for each gene and cell
+* Sample counts for each cell type and sample from a negative binomial distribution based on mean counts, gene-wise dispersion and library size
+* Concatenate simulated data into a ``SingleCellExperiment``
+
+### Generation of correlation structure
+In a first step the ``SingleCellExperiment`` is subsected into each sample. Each sample is further subsected into the single cell types. This is the original data for a single simulation round, i.e. we construct the correlation structure for each cell type of each sample seperately as follows:
+
+* Perform PCA on the data with gene as features
+* Compute _k_-nearest neighbours of a cell
+* Randomly select _N_ cells from the nearest neighbours with replacement
+* Average the top principal components to create a artificial cell
+* Project artificial cell from PCA space back into logcounts space
+
+By averaging different subsets we obtain a correlation structure among the artificial cells. Note that we have to repeate this procedure for each cell type of each sample.
+
+### Construct simulated ``SingleCellExperiment``
+To obtain a complete artificial dataset we need to generate multiple samples with different cell types. Therefore we repeat the above described procedure for each cell type in a sample and for each sample in the original data set. This gives us a matrix of mean logcounts of the artificial cells each associated with a given cell type and sample id. We use convert this mean logcount matrix back to a count matrix and use this mean count matrix together with the gene-wise dispersion computed from the original data set as well as the library size of a given cell to generate artifical counts by sampling from a negative binomial distribution. This results in the final artifical count matrix.
+
+### Simulation work-flow overview
+We summarise this section by giving an overview of the whole procedure to generate the artificial counts:
+
+* Prepare original data for simulation with ``prepSim()`` from ``muscat`` framework to filter the original data set
+* For each sample and cell type generate the mean count based on PC averaging of a subset of _k_-nearest neigbours
+* Based on mean count matrix, gene-wise dispersion and library size sample artificial counts from negative binomial
+
+### Simulation
+## Load data
+```{r}
+suppressPackageStartupMessages({
+library(SingleCellExperiment)
+library(scater)
+library(ggplot2)
+library(gridExtra)
+library(grid)
+library(edgeR)
+library(irlba)
+library(muscat)})
+source('~/OneDrive - ETHZ/Master/2. Semester/Statistical_Analysis_of_High_Throughput_Genomic_and_Transcriptomic_Data/sta426-project/fun.R', echo=TRUE)
+
+#Load object
+sce = readRDS("week13_SCE_clustered.rds")
+sce = logNormCounts(sce)
+
+#Extract WT samples
+sce_wt = sce[, colData(sce)$group_id == "WT"]
+```
+
+## Run simulation
+```{r}
+##Prep data for simulation
+sce_prep <- prepSCE(sce_wt,
+  cluster_id = "cluster_id",
+  sample_id = "sample_id",
+  group_id = "group_id",
+  drop = FALSE)
+sce_prep <- prepSim(sce_prep)
+
+n_cluster = length(unique(colData(sce_prep)$cluster_id))
+freq_cluster = table(colData(sce_prep)$cluster_id)
+freq_cluster = freq_cluster / sum(freq_cluster)
+n_sample = length(unique(colData(sce_prep)$sample_id))
+n_group = 2
+
+#Set params MUSCAT
+n_genes = nrow(sce_prep)
+n_cells_muscat = 100*n_sample
+p_dd = c(0.9, 0, 0.1, 0, 0, 0)
+probs = list(cluster = freq_cluster,
+             sample = rep(1/n_sample, n_sample),
+             group = rep(1/n_group, n_group))
+lcf = 4
+
+#Set params our simulation
+n_comp = 10
+n_cells = rep(n_cells_muscat / n_sample, n_sample)
+kNN = 10
+kNN_subsample = 5
+logFC = list(magnitude = lcf, proportion = p_dd[3]) #corresponds to p_dd
+verbose = 2
+
+#Run simulations
+sce_muscat = simData(sce_prep, n_genes = n_genes, n_cells = n_cells_muscat, p_dd = p_dd, probs = probs)
+sce_sim = create_dataset(sce_prep, n_comp, n_cells, kNN, kNN_subsample, n_sample, logFC, probs, verbose)
+```
+
+## Augment data sets
+```{r}
+#Convert counts
+sce_muscat = logNormCounts(sce_muscat)
+logcounts(sce_prep) = as.matrix(logcounts(sce_prep))
+counts(sce_prep) = as.matrix(counts(sce_prep))
+
+#Populate sce_sim with reducedDim
+sce_sim = runPCA(sce_sim)
+sce_sim = runUMAP(sce_sim)
+sce_sim = runTSNE(sce_sim)
+
+#Populate sce_muscat with reducedDim
+sce_muscat = runPCA(sce_muscat)
+sce_muscat = runUMAP(sce_muscat)
+sce_muscat = runTSNE(sce_muscat)
+
+#Populate sce_wt with reducedDim
+sce_prep = runPCA(sce_prep)
+sce_prep = runUMAP(sce_prep)
+sce_prep = runTSNE(sce_prep)
+```
+
+## Compare simulations
+```{r}
+subsample = sample(1:ncol(sce_prep), ncol(sce_sim))
+  
+#Distribution of counts
+par(mfrow=c(3,1))
+hist(logcounts(sce_prep)[sample(1:nrow(sce_prep), nrow(sce_sim))])
+hist(logcounts(sce_muscat))
+hist(logcounts(sce_sim))
+
+#Sum of counts
+countSum = data.frame(sce_prep = sum(counts(sce_prep)[,subsample]),
+                      sce_muscat = sum(counts(sce_muscat)),
+                      sce_sim = sum(counts(sce_sim)))
+barplot(as.matrix(countSum), main = "Count sum of different SingleCellExperiment data sets")
+
+table(metadata(sce_sim)$category)
+table(metadata(sce_muscat)$category)
+
+#Plot dim reductions
+par(mfrow=c(3,1))
+plotReducedDim(sce_prep, "PCA", colour_by = "cluster_id")
+plotReducedDim(sce_muscat, "PCA", colour_by = "cluster_id", shape_by = "group_id")
+plotReducedDim(sce_sim, "PCA", colour_by = "cluster_id", shape_by = "group_id")
+
+par(mfrow=c(3,1))
+plotReducedDim(sce_prep, "UMAP", colour_by = "cluster_id")
+plotReducedDim(sce_muscat, "UMAP", colour_by = "cluster_id", shape_by = "group_id")
+plotReducedDim(sce_sim, "UMAP", colour_by = "cluster_id", shape_by = "group_id")
+
+par(mfrow=c(3,1))
+plotReducedDim(sce_prep, "TSNE", colour_by = "cluster_id")
+plotReducedDim(sce_muscat, "TSNE", colour_by = "cluster_id", shape_by = "group_id")
+plotReducedDim(sce_sim, "TSNE", colour_by = "cluster_id", shape_by = "group_id")
+
+#Cell-cell correlation structure
+CellCellCor = list("sce_prep" = cor(counts(sce_prep)[,subsample]),
+                   "sce_muscat" = cor(counts(sce_muscat)),
+                   "sce_sim" = cor(counts(sce_sim)))
+
+x = 1:ncol(sce_muscat)
+par(mfrow = c(1,3))
+image(x,x,CellCellCor$sce_muscat, axes = FALSE, xlab = '', ylab = '')
+image(x,x,CellCellCor$sce_sim, axes = FALSE, xlab = '', ylab = '')
+
+#Gene-Gene correlation structure
+#GeneGeneCor = list("sce_prep" = cor(t(counts(sce_prep)[,subsample])),
+#                   "sce_muscat" = cor(t(counts(sce_muscat))),
+#                   "sce_sim" = cor(t(counts(sce_sim))))
+
+# x = 1:nrow(sce_muscat)
+# par(mar = c(5,6,6,4), cex = 0.5)
+# image(x,x,GeneGeneCor$sce_muscat, axes = FALSE, xlab = '', ylab = '')
+
+```
 
 ## DE Analysis
+```{r}
 #### TODO
+```
+
 
 # Conclusions
 
