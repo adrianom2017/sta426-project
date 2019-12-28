@@ -1,9 +1,17 @@
 
 #data, n_treated, n_untreated, samples_treated, samples_untreated, n_comp / or auto, logFC magnitude + portion / list
 
-create_dataset = function(sce, n_comp, n_cells, kNN, kNN_subsample, n_samples, logFC){
+create_dataset = function(sce, n_comp, n_cells, kNN, kNN_subsample, n_samples, logFC, p_dd, verbose){
   
   samples = unique(colData(sce)$sample_id)
+  
+  if(kNN > n_comp){
+    stop("Number of kNN larger than n_comp")
+  }
+  
+  if(kNN <= kNN_subsample){
+    warning("Number of kNN_subsample larger or equal to kNN")
+  }
   
   #Sanity checks
   if(length(samples) < n_samples){
@@ -11,7 +19,7 @@ create_dataset = function(sce, n_comp, n_cells, kNN, kNN_subsample, n_samples, l
   }
   
   if(length(n_cells) == 1){
-    n_cells = rep(n_cells, length(samples))
+    n_cells = rep(n_cells, n_samples)
   }else{
     if(!(length(n_cells) == n_samples)){
       stop("Lenght of n_cells vector not the same as n_samples")
@@ -28,26 +36,32 @@ create_dataset = function(sce, n_comp, n_cells, kNN, kNN_subsample, n_samples, l
     if(logFC[[1]] == 0){
       stop("Specified magnitude of logFC is 0")
     }
-  }
-  else if(length(logFC) != 1 | length(logFC) != 2){
-    stop("length of logFC list argument has to be 2 (with magnitue and proportion) or 1 (vector of logFCs)")
+  }else if(length(logFC) != 1 | length(logFC) != 2){
+      stop("length of logFC list argument has to be 2 (with magnitue and proportion) or 1 (vector of logFCs)")
   }
   
   #TODO
   sce_sim = SingleCellExperiment(list(logcounts_sim = matrix(nrow = nrow(sce), ncol = 0)))
-  colD = data.frame(matrix(nrow = 0, ncol = 3))
-  names(colD) = c("cluster_id","sample_id","cell_id")
+  colD = data.frame(matrix(nrow = 0, ncol = 4))
+  names(colD) = c("cluster_id","sample_id","cell_id", "library.size")
   
-  for(i in 1:length(samples)){
-    sample_sce = create_sample(sce[, colData(sce)$sample_id == samples[i]], n_comp, n_cells[i], kNN, kNN_subsample)
+  for(i in 1:n_samples){
+    if(verbose == 1 | verbose == 2){
+      print(paste("Sample", i, "is computed"))
+    }
+    sample_sce = create_sample(sce[, colData(sce)$sample_id == samples[i]], n_comp, n_cells[i], kNN, kNN_subsample, verbose)
     sce_sim = SingleCellExperiment(list(logcounts_sim = cbind(assay(sce_sim, 'logcounts_sim'), assay(sample_sce, 'logcounts_sim'))))
     colD = rbind(colD, colData(sample_sce))
   }
   
   colData(sce_sim) = cbind(colData(sce_sim),colD)
   
+  #Determine group of cell (either de or ee) and library size
+  category = data.frame(category = sample(c("de", "ee"), replace = TRUE, size = sum(n_cells), prob = c(p_dd, 1-p_dd)))
+  colData(sce_sim) = cbind(colData(sce_sim), category)
+  
   #Compute dispersion of genes
-  dispresion = compute_dispresion(sce)
+  dispersion = compute_dispresion(sce)
   
   #Compute logFC for each gene
   lFC = compute_logFC(sce, logFC)
@@ -58,7 +72,7 @@ create_dataset = function(sce, n_comp, n_cells, kNN, kNN_subsample, n_samples, l
   
   #Add counts
   #TODO how to trainsfom
-  tmp = 2^logcounts(sce_sim) - 1
+  tmp = 2^assay(sce_sim, "logcounts_sim") - 1
   tmp[tmp < 0 ] = 0
   counts(sce_sim) = tmp
   
@@ -73,9 +87,24 @@ nb_counts = function(sce_sim){
   #TODO incoorperate library.size
   ds = rep(rowData(sce_sim)$dispersion, each = ncol(sce_sim)) 
   
-  mu = c(counts(sce_sim)) * 2^rowData(sce_sim)$logFC
+  #Initialise mean matrix
+  mu = matrix(-1, nrow = nrow(sce_sim),ncol = ncol(sce_sim))
+  for(i in 1:ncol(mu)){
+    if(sce_sim$category[[i]] == "de"){
+      mu[,i] = counts(sce_sim)[,i] * 2^rowData(sce_sim)$logFC
+    }else{
+      mu[,i] = counts(sce_sim)[,i]
+    }
+  }
   
-  counts =  rnbinom(n=nrow(sce_sim)*ncol(sce_sim), size=1/ds, mu=mu)
+  #Adjust mu to library.size
+  mu_adj = matrix(-1, nrow = nrow(sce_sim),ncol = ncol(sce_sim))
+  lib.size = colData(sce_sim)$library.size
+  for(i in 1:ncol(mu)){
+    mu_adj[,i]=colData(sce_sim)$library.size[i]*mu[,i]/sum(mu[,i])
+  }
+
+  counts =  rnbinom(n=nrow(sce_sim)*ncol(sce_sim), size=1/ds, mu=c(mu_adj))
   counts = matrix(counts, nrow = nrow(sce_sim),ncol = ncol(sce_sim))
   assay(sce_sim, 'counts_sim') = counts
   return(sce_sim)
@@ -88,7 +117,7 @@ compute_logFC = function(sce, logFC){
   }else{
     l = rep(0, nrow(sce))
     n_DE_genes = floor(nrow(sce)*logFC[[2]])
-    l[sample(1:nrow(sce), size = n_DE_genes)] = sample(c(logFC[[1]], 1/logFC[[1]]), size = n_DE_genes, replace = TRUE)
+    l[sample(1:nrow(sce), size = n_DE_genes)] = sample(c(logFC[[1]], -logFC[[1]]), size = n_DE_genes, replace = TRUE)
     return(l)
   }
   
@@ -102,23 +131,27 @@ compute_dispresion = function(sce){
   return(dispersion)
 }
 
-create_sample = function(sce, n_comp, n_cells, kNN, kNN_subsample){
+create_sample = function(sce, n_comp, n_cells, kNN, kNN_subsample, verbose){
   
   n.cells.per.types = n_cells_per_types(sce, n_cells)
   cell_types = unique(colData(sce)$cluster_id)
   
   #Initialise matrix
   sample_expression_matrix = matrix(nrow = nrow(sce), ncol = 0)
+  lib.size = c()
   for(i in 1:length(n.cells.per.types)){
-    show(cell_types[i])
+    if(verbose == 2){print(cell_types[i])}
     if(!n.cells.per.types[i] == 0){
       tmp = expression_matrix(sce[,colData(sce)$cluster_id == cell_types[i]], n_comp, n.cells.per.types[i], kNN, kNN_subsample)
-      sample_expression_matrix = cbind(sample_expression_matrix, tmp)}
+      sample_expression_matrix = cbind(sample_expression_matrix, tmp$expr)
+      lib.size = c(lib.size, tmp$lib.size)
+      }
   }
   
   colD = data.frame(cluster_id = rep(cell_types, n.cells.per.types),
                     sample_id = colData(sce)$sample_id[1],
-                    cell_id = colnames(sample_expression_matrix))
+                    cell_id = colnames(sample_expression_matrix),
+                    library.size = lib.size)
   
   #Create a SingleCellExperiment object with the mean logcounts for this sample
   sample_sce = SingleCellExperiment(list(logcounts_sim = sample_expression_matrix))
@@ -172,5 +205,5 @@ expression_matrix = function(sce, n_comp, n_cells_per_celltype, kNN, kNN_subsamp
   #TODO check transpose https://stackoverflow.com/questions/29783790/how-to-reverse-pca-in-prcomp-to-get-original-data
   expression_matrix <- t(w_clustered  %*% t(pca_data$rotation)) + pca_data$center
   colnames(expression_matrix) = rownames(colData(sce))[idx_cells]
-  return(expression_matrix)
+  return(list(expr = expression_matrix, lib.size = colSums(counts(sce))[idx_cells]))
 }

@@ -206,15 +206,32 @@ sce = readRDS("week13_SCE_clustered.rds")
 sce = logNormCounts(sce)
 
 sce_wt = sce[, colData(sce)$group_id == "WT"]
+#sce_wt = sce_wt[,sample(1:ncol(sce_wt), size = 1000)]
 
-n_comp = 10
-n_cells = rep(100, length(unique(colData(sce_wt)$sample_id)))
-kNN = 10
-kNN_subsample = 5
+n_comp = 5
+n_cells = 10
+kNN = 3
+kNN_subsample = 2
 n_samples = 2
 logFC = list(magnitude = 4, proportion = 0.01)
+p_dd = 0.5
+verbose = 2
 
-sce_sim = create_dataset(sce_wt, n_comp, n_cells, kNN, kNN_subsample, n_samples, logFC)
+sce_sim = create_dataset(sce_wt, n_comp, n_cells, kNN, kNN_subsample, n_samples, logFC, p_dd, verbose)
+
+#Sanity check plot: Check if library size is approximately equal to indicated library size of original dat
+#plot(colData(sce_sim)$library.size, colSums(assay(sce_sim, "counts_sim")))
+
+```
+
+```{r}
+#Run simulation with MUSCAT
+#prepSim
+sce_prep = prepSim(sce_wt, group_keep = "WT")
+#simData
+#Compute DE genes with the workflow you implemented
+
+
 
 ```
 
