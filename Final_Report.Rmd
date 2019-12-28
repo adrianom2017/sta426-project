@@ -12,14 +12,17 @@ knitr::opts_chunk$set(echo = TRUE)
 # Introduction
 The aim of this project is to extend the simulation framework established in the group Prof. Mark Robinson in collaboration with Pierre Luc Germain. More precisely the ``muscat`` simulation framework currently used in the group does not take gene-gene correlation into account. It is well known that gene-gene correlation is observed in real world data sets and we want to extend the framework such that the simulation framework respects this correlation. 
 
+## Describe data set
+## TODO
+
 # Results
 
-## DE Analysis for muscat framework
-
-## DE Analysis for 
-
-
 # Methods
+## Simulation
+## TODO Adriano
+
+## DE Analysis
+#### TODO
 
 # Conclusions
 

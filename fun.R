@@ -1,13 +1,9 @@
 
 #data, n_treated, n_untreated, samples_treated, samples_untreated, n_comp / or auto, logFC magnitude + portion / list
 
-create_dataset = function(sce, n_comp, n_cells, kNN, kNN_subsample, n_samples, logFC, p_dd, verbose){
+create_dataset = function(sce, n_comp, n_cells, kNN, kNN_subsample, n_samples, logFC, probs, verbose){
   
   samples = unique(colData(sce)$sample_id)
-  
-  if(kNN > n_comp){
-    stop("Number of kNN larger than n_comp")
-  }
   
   if(kNN <= kNN_subsample){
     warning("Number of kNN_subsample larger or equal to kNN")
@@ -30,7 +26,7 @@ create_dataset = function(sce, n_comp, n_cells, kNN, kNN_subsample, n_samples, l
     stop("logFC argument no list")
   }else if(length(logFC) == 2){
     if(logFC[[2]] > 1){
-      stop("Specified proportion in logFC is lager than 1. Invalid.")
+      stop("Specified proportion in logFC is lager than 1.")
     }
     
     if(logFC[[1]] == 0){
@@ -50,18 +46,27 @@ create_dataset = function(sce, n_comp, n_cells, kNN, kNN_subsample, n_samples, l
       print(paste("Sample", i, "is computed"))
     }
     sample_sce = create_sample(sce[, colData(sce)$sample_id == samples[i]], n_comp, n_cells[i], kNN, kNN_subsample, verbose)
-    sce_sim = SingleCellExperiment(list(logcounts_sim = cbind(assay(sce_sim, 'logcounts_sim'), assay(sample_sce, 'logcounts_sim'))))
+    sce_sim = SingleCellExperiment(list(logcounts_sim = cbind(assay(sce_sim, 'logcounts'), assay(sample_sce, 'logcounts_sim'))))
     colD = rbind(colD, colData(sample_sce))
   }
   
   colData(sce_sim) = cbind(colData(sce_sim),colD)
   
   #Determine group of cell (either de or ee) and library size
-  category = data.frame(category = sample(c("de", "ee"), replace = TRUE, size = sum(n_cells), prob = c(p_dd, 1-p_dd)))
+  if(length(logFC) == 2){
+    category = data.frame(category = sample(c("de", "ee"), replace = TRUE, size = sum(n_cells), prob = c(probs[[3]], 1-probs[[3]])))}
+  else{
+    category = logFC
+  }
   colData(sce_sim) = cbind(colData(sce_sim), category)
+  colData(sce_sim)$sample_id = paste(colData(sce_sim)$sample_id, colData(sce_sim)$category, sep = ".")
   
   #Compute dispersion of genes
-  dispersion = compute_dispresion(sce)
+  if("dispersion" %in% names(rowData(sce))){
+    dispersion = rowData(sce)$dispersion
+  }else{
+    dispersion = compute_dispresion(sce)
+    }
   
   #Compute logFC for each gene
   lFC = compute_logFC(sce, logFC)
@@ -71,13 +76,14 @@ create_dataset = function(sce, n_comp, n_cells, kNN, kNN_subsample, n_samples, l
   rowData(sce_sim) = cbind(rowData(sce_sim), rowD)
   
   #Add counts
-  #TODO how to trainsfom
-  tmp = 2^assay(sce_sim, "logcounts_sim") - 1
+  #TODO how to transform
+  tmp = 2^assay(sce_sim, "logcounts") - 1
   tmp[tmp < 0 ] = 0
   counts(sce_sim) = tmp
   
   #Compute the counts from NB
   sce_sim = nb_counts(sce_sim)
+  sce_sim = logNormCounts(sce_sim)
   
   return(sce_sim)
 }
@@ -106,7 +112,7 @@ nb_counts = function(sce_sim){
 
   counts =  rnbinom(n=nrow(sce_sim)*ncol(sce_sim), size=1/ds, mu=c(mu_adj))
   counts = matrix(counts, nrow = nrow(sce_sim),ncol = ncol(sce_sim))
-  assay(sce_sim, 'counts_sim') = counts
+  assay(sce_sim, 'counts') = counts
   return(sce_sim)
 }
 

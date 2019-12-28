@@ -202,36 +202,100 @@ library(edgeR)
 library(irlba)
 library(muscat)
 
+#Load object
 sce = readRDS("week13_SCE_clustered.rds")
 sce = logNormCounts(sce)
 
+#Extract WT samples
 sce_wt = sce[, colData(sce)$group_id == "WT"]
-#sce_wt = sce_wt[,sample(1:ncol(sce_wt), size = 1000)]
+```
 
-n_comp = 5
-n_cells = 10
-kNN = 3
-kNN_subsample = 2
-n_samples = 2
-logFC = list(magnitude = 4, proportion = 0.01)
-p_dd = 0.5
+## Run simulation
+```{r}
+##Prep data for simulation
+sce_prep <- prepSCE(sce_wt,
+  cluster_id = "cluster_id",
+  sample_id = "sample_id",
+  group_id = "group_id",
+  drop = FALSE)
+sce_prep <- prepSim(sce_prep)
+
+n_cluster = length(unique(colData(sce_prep)$cluster_id))
+freq_cluster = table(colData(sce_prep)$cluster_id)
+freq_cluster = freq_cluster / sum(freq_cluster)
+n_sample = length(unique(colData(sce_prep)$sample_id))
+n_group = 2
+
+#Set params MUSCAT
+n_genes = nrow(sce_prep)
+n_cells_muscat = 100*n_sample
+p_dd = c(0.9, 0, 0.1, 0, 0, 0)
+probs = list(cluster = freq_cluster,
+             sample = rep(1/n_sample, n_sample),
+             group = rep(1/n_group, n_group))
+lcf = 4
+
+#Set params our simulation
+n_comp = 10
+n_cells = rep(n_cells_muscat / n_sample, n_sample)
+kNN = 10
+kNN_subsample = 5
+logFC = list(magnitude = lcf, proportion = p_dd[3]) #corresponds to p_dd
 verbose = 2
 
-sce_sim = create_dataset(sce_wt, n_comp, n_cells, kNN, kNN_subsample, n_samples, logFC, p_dd, verbose)
-
-#Sanity check plot: Check if library size is approximately equal to indicated library size of original dat
-#plot(colData(sce_sim)$library.size, colSums(assay(sce_sim, "counts_sim")))
+#Run simulations
+sce_muscat = simData(sce_prep, n_genes = n_genes, n_cells = n_cells_muscat, p_dd = p_dd, probs = probs)
+sce_sim = create_dataset(sce_prep, n_comp, n_cells, kNN, kNN_subsample, n_sample, logFC, probs, verbose)
 
 ```
 
+
 ```{r}
-#Run simulation with MUSCAT
-#prepSim
-sce_prep = prepSim(sce_wt, group_keep = "WT")
-#simData
-#Compute DE genes with the workflow you implemented
+#Populate sce_sim with reducedDim
+sce_sim = runPCA(sce_sim)
+sce_sim = runUMAP(sce_sim)
+sce_sim = runTSNE(sce_sim)
+
+#Populate sce_muscat with reducedDim
+sce_muscat = runPCA(sce_muscat)
+sce_muscat = runUMAP(sce_muscat)
+sce_muscat = runTSNE(sce_muscat)
+
+#Populate sce_wt with reducedDim
+sce_wt = runPCA(sce_wt)
+sce_wt = runUMAP(sce_wt)
+sce_wt = runTSNE(sce_wt)
+```
+
+## Compare sim and original data
+```{r}
+#TODO countSimQC package
 
 
+```
+
+
+## DE analysis
+```{r}
+#TODO implement your functions
+
+
+
+```
+
+## Plots
+```{r}
+library(iCOBRA)
+tbl = readRDS("tbl")
+cat = as.vector(tbl$category)
+cat[cat == "de"] = 1
+cat[cat == "ee"] = 0
+cat = as.numeric(cat)
+tbl$category = cat
+
+#TODO
+#FDR vs TPR for each DE analysis method (limma, edgeR,...)
+#Upset plot for each DE analysis method. Compare found DE genes vs true DE genes
 
 ```
 
