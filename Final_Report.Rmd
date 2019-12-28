@@ -58,8 +58,9 @@ library(gridExtra)
 library(grid)
 library(edgeR)
 library(irlba)
-library(muscat)})
-source('~/OneDrive - ETHZ/Master/2. Semester/Statistical_Analysis_of_High_Throughput_Genomic_and_Transcriptomic_Data/sta426-project/fun.R', echo=TRUE)
+library(muscat)
+library(sta426)})
+#source('./fun.R', echo=TRUE)
 
 #Load object
 sce = readRDS("week13_SCE_clustered.rds")

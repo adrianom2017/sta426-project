@@ -12,19 +12,13 @@ if(BiocManager::version() != '3.10'){
 
 #BiocManager::install('remotes', quiet=TRUE)
 #remotes::install_github('HelenaLC/muscat', quiet=FALSE)
-library(SingleCellExperiment)
-library(scater)
-library(ggplot2)
-library(gridExtra)
-library(grid)
-library(edgeR)
-library(irlba)
-library(muscat)
 pkgs <- c("SingleCellExperiment",
           "scater",
           "ggplot2","gridExtra","grid",
           "edgeR",
           "irlba",
-          "muscat")
+          "muscat",
+          "devtools")
 
 BiocManager::install(pkgs, update=FALSE, ask=FALSE, quiet=TRUE)
+install_github("adrianom2017/sta426-project/sta426")

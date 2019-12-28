@@ -43,14 +43,36 @@ Adriano Martinelli
 muscat
 }
 \examples{
-##---- Should be DIRECTLY executable !! ----
-##-- ==>  Define data, use random,
-##--	or do  help(data=index)  for the standard data sets.
+library(muscat)
+library(sta426)
 
-## The function is currently defined as
-function (x)
-{
-  }
+data("sta426Data")
+sce = logNormCounts(sce)
+
+#Extract WT samples
+sce_wt = sce[, colData(sce)$group_id == "WT"]
+
+sce_prep <- prepSCE(sce_wt,
+  cluster_id = "cluster_id",
+  sample_id = "sample_id",
+  group_id = "group_id",
+  drop = FALSE)
+sce_prep <- prepSim(sce_prep)
+
+#Set params our simulation
+n_comp = 10
+n_cells = 100
+kNN = 10
+kNN_subsample = 5
+n_sample = 2
+logFC = list(magnitude = 4, proportion = 0.1)
+n_group = 2
+probs = list(cluster = freq_cluster,
+             sample = rep(1/n_sample, n_sample),
+             group = rep(1/n_group, n_group))
+verbose = 2
+
+sce_sim = create_dataset(sce_prep, n_comp, n_cells, kNN, kNN_subsample, n_sample, logFC, probs, verbose)
 }
 % Add one or more standard keywords, see file 'KEYWORDS' in the
 % R documentation directory.
