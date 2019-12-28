@@ -1,0 +1,8 @@
+compute_dispersion	compute_dispersion
+compute_logFC	compute_logFC
+create_dataset	create_dataset
+create_sample	create_sample
+expression_matrix	expression_matrix
+nb_counts	nb_counts
+n_cells_per_types	n_cells_per_types
+sta426Data.RData	sta426Data.RData

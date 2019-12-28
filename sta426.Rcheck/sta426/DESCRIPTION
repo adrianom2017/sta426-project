@@ -1,0 +1,17 @@
+Package: sta426
+Type: Package
+Title: SingleCellExperiment Simulation
+Version: 0.1.0
+Depends: R (>= 3.5.0)
+Authors@R: person("Adriano", "Martinelli", email = "adrianom@student.ethz.ch",
+  role = c("aut", "cre"))
+Description: More about what it does (maybe more than one line)
+    Use four spaces when indenting paragraphs within the Description.
+License: What license is it under?
+Encoding: UTF-8
+LazyData: true
+NeedsCompilation: no
+Packaged: 2019-12-28 18:20:32 UTC; adrianomartinelli
+Author: Adriano Martinelli [aut, cre]
+Maintainer: Adriano Martinelli <adrianom@student.ethz.ch>
+Built: R 3.6.1; ; 2019-12-28 18:20:42 UTC; unix
