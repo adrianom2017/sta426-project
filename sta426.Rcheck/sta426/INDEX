@@ -1,8 +1,0 @@
-compute_dispersion      compute_dispersion
-compute_logFC           compute_logFC
-create_dataset          Create a simulated SingleCellExperiment object.
-create_sample           create_sample
-expression_matrix       expression_matrix
-n_cells_per_types       n_cells_per_types
-nb_counts               nb_counts
-sta426Data.RData        Toy dataset
