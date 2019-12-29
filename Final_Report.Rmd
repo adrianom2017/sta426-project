@@ -60,6 +60,7 @@ library(grid)
 library(edgeR)
 library(irlba)
 library(muscat)
+library(countsimQC)
 library(TMB)})
 #library(sta426)#install_github(adrianom/sta426-project/sta426)
 
@@ -206,6 +207,22 @@ image(x,x,CellCellCor$sce_sim, axes = FALSE, xlab = '', ylab = '')
 # x = 1:nrow(sce_muscat)
 # par(mar = c(5,6,6,4), cex = 0.5)
 # image(x,x,GeneGeneCor$sce_muscat, axes = FALSE, xlab = '', ylab = '')
+
+#Run count
+DESeq_sim = DESeq2::DESeqDataSetFromMatrix(counts(sce_sim), colData(sce_sim), ~cluster_id*group_id)
+DESeq_muscat = DESeq2::DESeqDataSetFromMatrix(counts(sce_muscat), colData(sce_muscat), ~cluster_id*group_id)
+DESeq_prep = DESeq2::DESeqDataSetFromMatrix(counts(sce_prep), colData(sce_prep), ~cluster_id)
+
+QCdata = list("Original" = DESeq_prep, "Muscat" = DESeq_muscat, "Sim" = DESeq_sim)
+
+countsimQCReport(ddsList = QCdata, outputFile = "countsim_report.html",
+                 outputDir = "./CountSimReport/", outputFormat = "html_document", 
+                 showCode = FALSE, forceOverwrite = TRUE,
+                 savePlots = TRUE, description = "This is my test report.", 
+                 maxNForCorr = 25, maxNForDisp = Inf, 
+                 calculateStatistics = TRUE, subsampleSize = 25,
+                 kfrac = 0.01, kmin = 5, 
+                 permutationPvalues = FALSE, nPermutations = NULL)
 
 ```
 
