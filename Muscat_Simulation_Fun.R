@@ -6,10 +6,8 @@ compute.pd <- function(sim,assay,fun){
   return(pb)
 }
 
-DS.analysis.pd <- function(sim,assay,fun,ds_method,topnumber,method_name){
+DS.analysis.pd <- function(sim,assay,fun,ds_method,topnumber){
   
-  print("FUN")
-  print(fun)
   #Aggregation of single-cell to pseudobulk data for sum counts
   pb <- compute.pd(sim,assay,fun) 
   # Pseudobulk-level multidimensional scaling (MDS) plot. Each point represents a cluster-sample instance; points are colored by cluster ID and shaped by group ID
@@ -23,13 +21,25 @@ DS.analysis.pd <- function(sim,assay,fun,ds_method,topnumber,method_name){
   # filter & sort
   #tbl <- dplyr::filter(tbl, p_adj.loc < 0.05,logFC > 1)
   
+  
+  print("TBL 1")
+  print(tbl)
   tbl <- arrange(tbl, tbl$p_adj.loc)
   
+  print(metadata(sim))
   sim_df<- metadata(sim)[3]
+  print("sim_df")
+  print(sim_df)
   sim_map <-data.frame(sim_df$gene_info[,1:3])
   #Incomporate category type into tbl object
+  print("SIM MAP")
+  print(sim_map)
+  print("TBL")
+  print(tbl)
   tbl <- merge(tbl,sim_map,by=c("gene","cluster_id"))
   
+  print("TBL final")
+  print(tbl)
   # no. of DS genes per cluster
   res_by_k <- split(tbl, tbl$cluster_id)
   vapply(res_by_k, nrow, numeric(1))
@@ -46,6 +56,7 @@ DS.analysis.pd <- function(sim,assay,fun,ds_method,topnumber,method_name){
   ## Empty COBRAData object:
   COBRAData()
   
+  method_name = paste0(assay,"-",fun,"-",ds_method) 
   pval <- as.data.frame(tbl$p_val)
   colnames(pval) = method_name
   padj <- as.data.frame(tbl$p_adj.loc)
@@ -62,7 +73,7 @@ compute.mm <- function(sim,ds_method, vst){
   return(res)
 }
 
-DS.analysis.mm <- function(sim,ds_method,vst,topnumber,method_name){
+DS.analysis.mm <- function(sim,ds_method,type,vst,topnumber){
   
   res <- compute.mm(sim,ds_method,vst)
   
@@ -91,6 +102,7 @@ DS.analysis.mm <- function(sim,ds_method,vst,topnumber,method_name){
   ## Empty COBRAData object:
   COBRAData()
   
+  method_name = paste0(type,"-",ds_method,"-",vst)
   pval <- as.data.frame(tbl$p_val)
   colnames(pval) = method_name
   padj <- as.data.frame(tbl$p_adj.loc)
@@ -103,7 +115,6 @@ DS.analysis.mm <- function(sim,ds_method,vst,topnumber,method_name){
 }
 
 # TPR vs FDR Plot
-```{r}
 # TPR vs FDR
 library(iCOBRA)
 #library(purrr)
@@ -112,7 +123,7 @@ Plot.TPR.vs.FDR <- function(pval,padj,truth,method_name,num){
   #Initialize a COBRA object
   cobradata <- COBRAData(pval = pval, padj = padj,truth = truth)
   #methods <- colnames(cobradata@truth)
-  print(method_name)
+  #print(method_name)
   cobraperf <- calculate_performance(cobradata,binary_truth = method_name, aspects =c("fdrtpr", "fdrtprcurve"))
   #cobraplot <- prepare_data_for_plot(cobraperf, colorscheme = "Dark2", incltruth = TRUE)
   
@@ -137,8 +148,7 @@ Plot.TPR.vs.FDR <- function(pval,padj,truth,method_name,num){
 }
 
 # Violin plots
-Violin_plots<-function (sim,res_by_k){
-  
+Violin_plots<-function (sim,res_by_k,cs_by_k){
   print(plotExpression(sim[, cs_by_k$Neuronal_excit], 
                        features = res_by_k$Neuronal_excit$gene[seq_len(8)],
                        x = "sample_id", colour_by = "group_id") + theme_classic() + 
@@ -151,8 +161,18 @@ Violin_plots<-function (sim,res_by_k){
   
 }
 
-DR.colored.by.expression<-function(sim,tbl,topnumber){
-  top <- bind_rows(tbl) %>% 
+# wrapper to prettify reduced dimension plots
+.plot_dr <- function(sim, dr, col)
+  plotReducedDim(sim, dimred = dr, colour_by = col) +
+  guides(fill = guide_legend(override.aes = list(alpha = 1, size = 3))) +
+  theme_minimal() + theme(aspect.ratio = 1)
+
+DR.colored.by.expression<-function(sim,tbl,topnumber,cs_by_k){
+  
+  cs100 <- unlist(sapply(cs_by_k, function(u) 
+    sample(u, min(length(u), 100))))
+
+    top <- bind_rows(tbl) %>% 
     top_n(topnumber, dplyr::desc(p_adj.loc)) %>% 
     pull("gene")
   # for ea. gene in 'top', plot t-SNE colored by its expression 
@@ -176,7 +196,7 @@ pbHeatmap_plots<- function(sim,res){
 }
 
 
-DS.analysis.Visualization.mm <-function(ds,sim,ds_method,vst,topnumber,method_name,num){
+DS.analysis.Visualization.mm <-function(ds,ds_method,type,vst,topnumber,num){
   
   sim <- ds$sim
   res <-ds$res
@@ -186,7 +206,7 @@ DS.analysis.Visualization.mm <-function(ds,sim,ds_method,vst,topnumber,method_na
   
   ## Violin Plots
   cs_by_k <- split(colnames(sim), sim$cluster_id)
-  Violin_plots(sim,res_by_k)
+  Violin_plots(sim,res_by_k,cs_by_k)
   
   ### Between-cluster concordance
   ds_gs <- lapply(res_by_k, pull, "gene")
@@ -195,9 +215,11 @@ DS.analysis.Visualization.mm <-function(ds,sim,ds_method,vst,topnumber,method_na
   ### DR colored by expression
   if ((ds_method == "dream")){
     print("DR colored by expression Plot")
-    DR.colored.by.expression(sim,tbl,topnumber)
+    DR.colored.by.expression(sim,tbl,topnumber,cs_by_k)
   }
   
+  method_name = paste0(type,"-",ds_method,"-",vst)
+  print(method_name)
   p <- Plot.TPR.vs.FDR(ds$pval,ds$padj,ds$truth,method_name,num)
   
   ### Write results to .rds
@@ -208,7 +230,7 @@ DS.analysis.Visualization.mm <-function(ds,sim,ds_method,vst,topnumber,method_na
   
 }
 
-DS.analysis.Visualization.pb <-function(ds,assay,fun,ds_method,topnumber,method_name,num){
+DS.analysis.Visualization.pb <-function(ds,assay,fun,ds_method,topnumber,num){
   
   sim <- ds$sim
   res <-ds$res
@@ -225,7 +247,7 @@ DS.analysis.Visualization.pb <-function(ds,assay,fun,ds_method,topnumber,method_
   
   ### Violin Plots
   cs_by_k <- split(colnames(sim), sim$cluster_id)
-  Violin_plots(sim,res_by_k)
+  Violin_plots(sim,res_by_k,cs_by_k)
   
   ### Between-cluster concordance
   ds_gs <- lapply(res_by_k, pull, "gene")
@@ -233,9 +255,10 @@ DS.analysis.Visualization.pb <-function(ds,assay,fun,ds_method,topnumber,method_
   
   ### DR colored by expression
   if (!(assay=="logcounts" && fun == "mean" && ds_method =="edgeR")){
-    DR.colored.by.expression(sim,tbl,topnumber)
+    DR.colored.by.expression(sim,tbl,topnumber,cs_by_k)
   }
   
+  method_name = paste0(assay,"-",fun,"-",ds_method) 
   p <- Plot.TPR.vs.FDR(ds$pval,ds$padj,ds$truth,method_name,num)
   
   ### Write results to .rds
