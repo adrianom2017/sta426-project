@@ -17,7 +17,7 @@ The aim of this project is to extend the simulation framework Muscat (Multi-samp
 # Datasets
 
 For performimg our simulations we utilized the single-cell RNA-seq of mouse cortex injected with Lipopolysaccharide (LPS) or with a vehicle treatment dataset (Crowell et al.)[1].
-# Results
+
 
 # Methods
 ## Simulation
@@ -254,9 +254,128 @@ countsimQCReport(ddsList = QCdata, outputFile = "countsim_report.html",
 ```
 
 ## DE Analysis
-```{r}
-#### TODO
+```{r,message=FALSE}
+source('./Muscat_Simulation_Fun.R', echo=TRUE)
 ```
+
+##  Muscat Simulation
+```{r}
+methods <- list("sum_counts_edgeR","sum_counts_limma-voom","mean_logcounts_edgeR",
+             "mean_logcounts_limma-voom","mm_dream","mm_nbinom","mm_vst_DESeq")
+
+g <- ggplot() + geom_point()
+print(typeof(g))
+
+num = 0
+for (method in methods){
+  num = num +1
+  print(method)
+  print("Hello")
+  method_pieces <- strsplit(method, "_")
+  #print(method_pieces)
+  method_substring <- matrix(unlist(method_pieces), ncol=3, byrow=TRUE)
+  #print(method_substring)
+  
+  
+  topnumber = 0
+  vst = NULL
+  ds <- list()
+  if (grepl("mm_",method)){
+    if (method_substring[2] == "dream"){
+      topnumber = 8
+    }
+    else if (method_substring[2] == "vst"){
+      topnumber = 8
+      vst = method_substring[3]
+    }
+    print(method)
+    ds <- DS.analysis.mm(sce_muscat,method_substring[2],method_substring[1],vst,topnumber)
+    
+    #Visualization
+    p <- DS.analysis.Visualization.mm(ds,method_substring[2],method_substring[1],vst,topnumber,num)
+    
+  }
+  else{
+    if (!(method_substring[1] == "logcounts" && method_substring[3] == "edgeR")){
+      topnumber = 8
+    }
+    
+    #DS pb analysis
+    ds <- DS.analysis.pd(sce_muscat,method_substring[2],method_substring[1],method_substring[3], topnumber)
+    #Visualization
+    p <- DS.analysis.Visualization.pb(ds,method_substring[2],method_substring[1],method_substring[3],topnumber,num)
+  
+  }
+  
+  print("DONE!!")
+}
+
+
+```
+
+##  Our Simulation
+```{r}
+methods <- list("sum_counts_edgeR","sum_counts_limma-voom","mean_logcounts_edgeR",
+             "mean_logcounts_limma-voom","mm_dream","mm_nbinom","mm_vst_DESeq")
+
+g <- ggplot() + geom_point()
+print(typeof(g))
+
+num = 0
+for (method in methods){
+  num = num +1
+  print(method)
+  print("Hello")
+  method_pieces <- strsplit(method, "_")
+  #print(method_pieces)
+  method_substring <- matrix(unlist(method_pieces), ncol=3, byrow=TRUE)
+  #print(method_substring)
+  
+  
+  topnumber = 0
+  vst = NULL
+  ds <- list()
+  if (grepl("mm_",method)){
+    if (method_substring[2] == "dream"){
+      topnumber = 8
+    }
+    else if (method_substring[2] == "vst"){
+      topnumber = 8
+      vst = method_substring[3]
+    }
+    print(method)
+    ds <- DS.analysis.mm(sce_sim,method_substring[2],method_substring[1],vst,topnumber)
+    
+    #Visualization
+    p <- DS.analysis.Visualization.mm(ds,method_substring[2],method_substring[1],vst,topnumber,num)
+    
+  }
+  else{
+    if (!(method_substring[1] == "logcounts" && method_substring[3] == "edgeR")){
+      topnumber = 8
+    }
+    
+    #DS pb analysis
+    ds <- DS.analysis.pd(sce_sim,method_substring[2],method_substring[1],method_substring[3], topnumber)
+    #Visualization
+    p <- DS.analysis.Visualization.pb(ds,method_substring[2],method_substring[1],method_substring[3],topnumber,num)
+  
+  }
+  
+  print("DONE!!")
+}
+
+
+```
+
+
+# Results
+
+From the upsets plots above we observe that the number of differentially expressed genes for Neuronal_inhib is 4, for Neuronal_excit is 36. Moreover, it is evident that Neuronal_inhib and Neuronal_excit share 208 differentially expressed genes.
+
+
+From the upsets plots above we observe that for methods "dream" and "nbinom" the number of differentially expressed genes for Neuronal_inhib is 0, for Neuronal_excit is 43. Moreover, it is evident that Neuronal_inhib and Neuronal_excit share 68 differentially expressed genes.
+On ther other hand, for method "vst" with "DESeq2",  the number of differentially expressed genes for Neuronal_inhib and Neuronal_excit is 0 and both share 500 DE genes.
 
 
 # Conclusions
