@@ -52,15 +52,15 @@ create_dataset = function(sce, n_comp, n_cells, kNN, kNN_subsample, n_samples, l
   colData(sce_sim) = cbind(colData(sce_sim),colD)
 
   #Determine group of cell (either de or ee) and library size
-  category = data.frame(category = sample(c("de", "ee"), replace = TRUE, size = sum(n_cells), prob = probs[[3]]))
-  group_id = c()
-  group_id[category == "ee"] = "A"
-  group_id[category == "de"] = "B"
-  group_id = factor(group_id)
-  colData(sce_sim) = cbind(colData(sce_sim), category, group_id)
+  group_id = data.frame(group_id = sample(c("B", "A"), replace = TRUE, size = sum(n_cells), prob = probs[[3]]))
+  #group_id = c()
+  #group_id[category == "ee"] = "A"
+  #group_id[category == "de"] = "B"
+  #group_id = factor(group_id)
+  colData(sce_sim) = cbind(colData(sce_sim), group_id)
 
   #Correct sample_id to incorporate group tag
-  colData(sce_sim)$sample_id = paste(colData(sce_sim)$sample_id, colData(sce_sim)$category, sep = ".")
+  colData(sce_sim)$sample_id = paste(colData(sce_sim)$sample_id, colData(sce_sim)$group_id, sep = ".")
 
   #Compute dispersion of genes
   if(verbose >= 1){print("Compute gene-wise dispersion")}
@@ -102,9 +102,9 @@ create_dataset = function(sce, n_comp, n_cells, kNN, kNN_subsample, n_samples, l
 
   #Create meta data
   experiment_info = data.frame(sample_id = unique(colData(sce_sim)$sample_id))
-  group_id = sapply(strsplit(as.vector(experiment_info$sample_id), ".", fixed = TRUE), function(x) x[[2]])
-  group_id[group_id == "ee"] = "A"
-  group_id[group_id == "de"] = "B"
+  #group_id = sapply(strsplit(as.vector(experiment_info$sample_id), ".", fixed = TRUE), function(x) x[[2]])
+  #group_id[group_id == "ee"] = "A"
+  #group_id[group_id == "de"] = "B"
   experiment_info = cbind(experiment_info, group_id)
 
   n_cells = table(colData(sce_sim)$sample_id)
@@ -116,13 +116,25 @@ create_dataset = function(sce, n_comp, n_cells, kNN, kNN_subsample, n_samples, l
                          logFC1 = logFC1,
                          logFC2 = logFC2
                          )
-
+  
+  gene_info2 = data.frame(gene = rep(gene_info$gene, each = 2),
+                          cluster_id = cluster_id,
+                          sim_gene = rep(gene_info$sim_gene, each = 2),
+                          logFC = unlist(mapply(c,gene_info$logFC1, gene_info$logFC2, SIMPLIFY = FALSE)))
+  
+  category = rep("ee", length(gene_info2$logFC))
+  category[gene_info2$logFC != 0] = "de"
+  
+  gene_info2 = cbind(gene_info2, category)
+  
+  
   cell_info = data.frame(cell = paste("cell", 1:ncol(sce_sim), sep = ""),
                          sim_cell = colData(sce_sim)$cell_id)
 
   metadata(sce_sim) = list("experiment_info" = experiment_info,
                            "n_cells" = n_cells,
                            "gene_info" = gene_info,
+                           "gene_info2" = gene_info2,
                            "cell_info" = cell_info,
                            "cluster_info" = cluster_info)
 
@@ -143,9 +155,9 @@ nb_counts = function(sce_sim, lFC){
   #If the muscat meta data has been passed
   if(is.list(lFC)){
     for(i in 1:ncol(mu)){
-      if(sce_sim$category[[i]] == "de" & sce_sim$cluster_id[i] == cluster_id[1]){
+      if(sce_sim$group_id[[i]] == "B" & sce_sim$cluster_id[i] == cluster_id[1]){
         mu[,i] = counts(sce_sim)[,i] * 2^lFC[[1]]
-      }else if(sce_sim$category[[i]] == "de" & sce_sim$cluster_id[i] == cluster_id[2]){
+      }else if(sce_sim$group_id[[i]] == "B" & sce_sim$cluster_id[i] == cluster_id[2]){
         mu[,i] = counts(sce_sim)[,i] * 2^lFC[[2]]
       }else{
         mu[,i] = counts(sce_sim)[,i]
@@ -154,7 +166,7 @@ nb_counts = function(sce_sim, lFC){
   #If a numeric logFC has been passed
   }else{
     for(i in 1:ncol(mu)){
-      if(sce_sim$category[[i]] == "de"){
+      if(sce_sim$group_id[[i]] == "B"){
         mu[,i] = counts(sce_sim)[,i] * 2^rowData(sce_sim)$logFC
       }else{
         mu[,i] = counts(sce_sim)[,i]
