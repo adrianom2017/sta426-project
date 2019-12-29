@@ -377,7 +377,6 @@ To test for state changes across conditions, we will consider two types of appro
 * Cell-level viz.: Violin plots
 * Upset plot intersecting DS gene across clusters
 
-
 We first can aggregate measurements for each sample (in each cluster) to obtain pseudobulk data.
 
 ```{r}
@@ -397,12 +396,29 @@ Firstly, we filter the results to retain hits FDR < 5\% and abs(logFC) > 1, and 
 
 ```{r ds}
 
-DS.analysis.pd <- function(pb,sim,ds_method){
+DS.analysis.pd <- function(sim,assay,fun,ds_method,topnumber,method_name){
+  
+  print("FUN")
+  print(fun)
+  #Aggregation of single-cell to pseudobulk data for sum counts
+  pb <- compute.pd(sim,assay,fun) 
+  # Pseudobulk-level multidimensional scaling (MDS) plot. Each point represents a cluster-sample instance; points are colored by cluster ID and shaped by group ID
+  pb_mds <- pbMDS(pb)
+
   # run edgeR on pseudobulks
   res <- pbDS(pb, method = ds_method, verbose = FALSE)
   # reformat results
-  tbl <- resDS(sim, res, bind = "col")
+  tbl <- resDS(sim, res, bind = "col")  
+  
+   # filter & sort
+  #tbl <- dplyr::filter(tbl, p_adj.loc < 0.05,logFC > 1)
+  
   tbl <- arrange(tbl, tbl$p_adj.loc)
+  
+  sim_df<- metadata(sim)[3]
+  sim_map <-data.frame(sim_df$gene_info[,1:3])
+  #Incomporate category type into tbl object
+  tbl <- merge(tbl,sim_map,by=c("gene","cluster_id"))
   
   # no. of DS genes per cluster
   res_by_k <- split(tbl, tbl$cluster_id)
@@ -413,7 +429,21 @@ DS.analysis.pd <- function(pb,sim,ds_method){
   top$gene <- gsub("^.*\\.", "", top$gene)
   format(data.frame(top, row.names = NULL), digits = 3)
   
-  return(list(sim = sim,res = res ,tbl = tbl,res_by_k = res_by_k))
+  #Preparing TPR vs FDR object
+  tbl$category <- lapply(tbl$category, function(x) {gsub("de", 1, x) })
+  tbl$category <- lapply(tbl$category, function(x) {gsub("ee", 0, x) })
+  
+  ## Empty COBRAData object:
+  COBRAData()
+
+  pval <- as.data.frame(tbl$p_val)
+  colnames(pval) = method_name
+  padj <- as.data.frame(tbl$p_adj.loc)
+  colnames(padj) = method_name
+  truth = as.data.frame(as.integer(unlist(tbl$category)))
+  colnames(truth) = method_name
+  
+  return(list(sim = sim,res = res ,tbl = tbl,res_by_k = res_by_k, pval  = pval,padj = padj, truth = truth ))
   
 }
 ```
@@ -425,14 +455,37 @@ compute.mm <- function(sim,ds_method, vst){
 }
 ```
 
+## Cell-level analysis: Mixed models {#sec-mmDS}
+
+We can fit for each gene a mixed model to the cell-level measurement data.
+
+1. fitting linear mixed models (LMMs) on log-normalized data with observational weights, 
+2. fitting LMMs on variance-stabilized data; and,
+3. fitting generalized linear mixed models (GLMMs) directly on counts
+
+In each case, a $\sim 1 + \text{group_id} + (1\,|\,\text{sample_id})$ model is fit for each gene, optimizing the log-likelihood (i.e., `REML = FALSE`). P-values are calculated using the estimates of degrees of freedom specifying by argument `df` (default `"Satterthwaite"`). Fitting, testing and moderation are applied subpopulation-wise. For differential testing, `mmDS` will only consider:
+
+- subpopulations with at least `n_cells` cells (default 10) in at least `n_samples` samples (default 2)
+- genes with a count >= `min_count` (default 1) in at least `min_cells` (default 20)
+
+Mixed model based approaches can be run directly on cell-level measurements, and do not require prior aggregation.
+
+
 ```{r ds}
 
-DS.analysis.mm <- function(res,sim,ds_method,vst){
-
+DS.analysis.mm <- function(sim,ds_method,vst,topnumber,method_name){
+  
   res <- compute.mm(sim,ds_method,vst)
   
   tbl <- rbind(res$Neuronal_excit,res$Neuronal_inhib)
   tbl <- arrange(tbl, tbl$p_adj.loc)
+  
+  sim_df<- metadata(sim)[3]
+  sim_map <-data.frame(sim_df$gene_info[,1:3])
+  #Incomporate category type into tbl object
+  tbl <- merge(tbl,sim_map,by=c("gene","cluster_id"))
+
+
   # no. of DS genes per cluster
   res_by_k <- split(tbl, tbl$cluster_id)
   vapply(res_by_k, nrow, numeric(1))
@@ -442,13 +495,67 @@ DS.analysis.mm <- function(res,sim,ds_method,vst){
   top$gene <- gsub("^.*\\.", "", top$gene)
   format(data.frame(top, row.names = NULL), digits = 3)
   
-  return(list(sim = sim,res = res ,tbl = tbl,res_by_k = res_by_k))
+    #Preparing TPR vs FDR object
+  tbl$category <- lapply(tbl$category, function(x) {gsub("de", 1, x) })
+  tbl$category <- lapply(tbl$category, function(x) {gsub("ee", 0, x) })
+  
+  ## Empty COBRAData object:
+  COBRAData()
+
+  pval <- as.data.frame(tbl$p_val)
+  colnames(pval) = method_name
+  padj <- as.data.frame(tbl$p_adj.loc)
+  colnames(padj) = method_name
+  truth = as.data.frame(as.integer(unlist(tbl$category)))
+  colnames(truth) = method_name
+  
+  return(list(sim = sim,res = res ,tbl = tbl,res_by_k = res_by_k, pval  = pval,padj = padj, truth = truth))
   
 }
 ```
 
-## Violin Plots
+# TPR vs FDR Plot
+```{r}
+ # TPR vs FDR
+library(iCOBRA)
+#library(purrr)
+Plot.TPR.vs.FDR <- function(pval,padj,truth,method_name,num){
+  
+  #Initialize a COBRA object
+  cobradata <- COBRAData(pval = pval, padj = padj,truth = truth)
+  #methods <- colnames(cobradata@truth)
+  print(method_name)
+  cobraperf <- calculate_performance(cobradata,binary_truth = method_name, aspects =c("fdrtpr", "fdrtprcurve"))
+  #cobraplot <- prepare_data_for_plot(cobraperf, colorscheme = "Dark2", incltruth = TRUE)
+ 
+ # p <- plot_fdrtprcurve (prepare_data_for_plot(cobraperf))
+  
+  color <-  c("red","blue", "green","orange","purple","yellow","brown")
+  p <- plot_fdrtprcurve(
+      prepare_data_for_plot(cobraperf), 
+      linewidth = 0.6, pointsize = 1) +
+      guides(color = guide_legend(override.aes = list(size = 1.2, linetype = 0))) +
+      scale_color_manual(values = color[num]) 
+    #  scale_y_continuous(breaks = seq(0, 1, 0.2), expand = c(0.05, 0)) +
+    #  scale_x_sqrt(breaks = c(0.01, 0.05, 0.1, seq(0.2, 1, 0.2)), expand = c(0.05, 0))
+      
+  p$layers[[1]] <- NULL # remove vertical dashed lightgrey lines 
+ # p$layers[[1]]$aes_params$size <- 0.4 # dashed lines at thresholds
+    
+  print(p)
+  
+  #ggsave(p, device = "pdf")
+  return(p)
+  
+    
+    
+    
+}
 
+```
+
+
+## Violin Plots
 We generate violin plots for the top-8 DS genes (lowest adj. p-value) for all clusters.
 Each violin is a sample; points are colored by group ID. As DS testing is done at the cluster-level, we need to subset the cells that have been assigned to the corresponding cluster for plotting. 
 
@@ -506,14 +613,13 @@ The code chunk generates a set of t-SNEs colored by gene expression for the top-
 
 
 ```{r}
-DS.analysis.Visualization.mm <-function(sim,ds_method,vst,topnumber){
-  res <- compute.mm(sim,ds_method, vst)
+DS.analysis.Visualization.mm <-function(ds,sim,ds_method,vst,topnumber,method_name,num){
   
-  ds <- DS.analysis.mm(res,sim,ds_method,vst)
   sim <- ds$sim
   res <-ds$res
   tbl <- ds$tbl
   res_by_k <- ds$res_by_k
+  
   
   ## Violin Plots
   cs_by_k <- split(colnames(sim), sim$cluster_id)
@@ -524,30 +630,31 @@ DS.analysis.Visualization.mm <-function(sim,ds_method,vst,topnumber){
   print(upset(fromList(ds_gs), sets = levels(sim$cluster_id)))
   
  ### DR colored by expression
-  if (!(ds_method =="nbinom" || ds_method =="vst")){
+  if ((ds_method == "dream")){
+    print("DR colored by expression Plot")
    DR.colored.by.expression(sim,tbl,topnumber)
- }
+  }
+  
+  p <- Plot.TPR.vs.FDR(ds$pval,ds$padj,ds$truth,method_name,num)
 
   ### Write results to .rds
   getwd()
   saveRDS(res, file.path("output", paste("DS_results_", "mm" , "_" , ds_method, ".rds")))
+  
+  return(p)
 
   }
 
 ```
 
 ```{r}
-DS.analysis.Visualization.pb <-function(sim,assay,fun,ds_method,topnumber){
-  #Aggregation of single-cell to pseudobulk data for sum counts
-  pb <- compute.pd(sim,assay,fun) 
-  # Pseudobulk-level multidimensional scaling (MDS) plot. Each point represents a cluster-sample instance; points are colored by cluster ID and shaped by group ID
-  pb_mds <- pbMDS(pb)
+DS.analysis.Visualization.pb <-function(ds,assay,fun,ds_method,topnumber,method_name,num){
   
-  ds <- DS.analysis.pd(pb,sim,ds_method)
   sim <- ds$sim
   res <-ds$res
   tbl <- ds$tbl
   res_by_k <- ds$res_by_k
+  
   
   if (!(assay == "counts" && fun=="sum" && ds_method == "limma-voom")
     && !(assay=="logcounts" && fun == "mean" && ds_method =="edgeR")){
@@ -568,67 +675,104 @@ DS.analysis.Visualization.pb <-function(sim,assay,fun,ds_method,topnumber){
  if (!(assay=="logcounts" && fun == "mean" && ds_method =="edgeR")){
    DR.colored.by.expression(sim,tbl,topnumber)
  }
+  
+  p <- Plot.TPR.vs.FDR(ds$pval,ds$padj,ds$truth,method_name,num)
 
   ### Write results to .rds
   getwd()
   saveRDS(res, file.path("output", paste("DS_results_", assay , "_" , fun, "_" , ds_method, ".rds")))
-    
+  
+  return(p)
+
 }
 ```
 
-```{r}
-#DS Analysis for sum counts
-DS.analysis.Visualization.pb(sim,"counts","sum","edgeR", 8)
+
+```{r,message=FALSE}
+methods <- list("sum_counts_edgeR","sum_counts_limma-voom","mean_logcounts_edgeR",
+             "mean_logcounts_limma-voom","mm_dream","mm_nbinom","mm_vst_DESeq")
+
+g <- ggplot() + geom_point()
+print(typeof(g))
+
+num = 0
+for (method in methods){
+  num = num +1
+  print(method)
+  method_pieces <- strsplit(method, "_")
+  print(method_pieces)
+  method_substring <- matrix(unlist(method_pieces), ncol=3, byrow=TRUE)
+  print(method_substring)
+  
+  
+  topnumber = 0
+  vst = NULL
+  ds <- list()
+  if (grepl("mm_",method)){
+    if (method_substring[2] == "dream"){
+      topnumber = 8
+    }
+    else if (method_substring[2] == "vst"){
+      topnumber = 8
+      vst = method_substring[3]
+    }
+    ds <- DS.analysis.mm(sim,method_substring[2],vst,topnumber,method)
+    
+    #Visualization
+    p <- DS.analysis.Visualization.mm(ds,method_substring[2],method_substring[1],method_substring[3],topnumber,method,num)
+    
+  }
+  else{
+    if (!(method_substring[1] == "logcounts" && method_substring[3] == "edgeR")){
+      topnumber = 8
+    }
+    
+    #DS pb analysis
+    ds <- DS.analysis.pd(sim,method_substring[2],method_substring[1],method_substring[3], topnumber,method)
+    #Visualization
+    p <- DS.analysis.Visualization.pb(ds,method_substring[2],method_substring[1],method_substring[3],topnumber,method,num)
+  
+  }
+  #print(p)
+  
+ # print("Hello")
+  #library(ggplotify)
+  #g = g + list(p)
+  #print(g)
+  
+  #break
+  #if (method == "sum_counts_edgeR"){
+  #  pval_total <- data.frame(matrix(0, ncol = 0, nrow = nrow(ds$tbl)))
+  #  padj_total <- data.frame(matrix(0, ncol = 0, nrow = nrow(ds$tbl)))
+  #  truth_total <- data.frame(matrix(0, ncol = 0, nrow = nrow(ds$tbl)))
+  #}
+ 
+ 
+  #print(dim(ds$pval))
+  #print(dim(pval_total))
+  
+
+  #print(pval_total)
+  #pval_total <- cbind(pval_total,ds$pval)
+  #padj_total <- cbind(padj_total,ds$padj)
+  #truth_total <- cbind(truth_total,ds$truth)
+  
+  
+}
+
+print("DONE!!")
+#print(g)
+# Plot TPR vs FDR
+#print(pval_total)
+#print(padj_total)
+#print(truth_total)
+#Plot.TPR.vs.FDR(pval_total,padj_total,truth_total)
+
 ```
 
-```{r}
-#DS Analysis for sum counts
-DS.analysis.Visualization.pb(sim,"counts","sum", "limma-voom",8)
-```
+
+From the upsets plots above we observe that the number of differentially expressed genes for Neuronal_inhib is 4, for Neuronal_excit is 36. Moreover, it is evident that Neuronal_inhib and Neuronal_excit share 208 differentially expressed genes.
 
 
-```{r}
-#DS Analysis for mean logcounts
-DS.analysis.Visualization.pb(sim,"logcounts","mean","edgeR",0)
-```
-
-```{r}
-#DS Analysis for mean logcounts
-DS.analysis.Visualization.pb(sim,"logcounts","mean","limma-voom",8)
-```
-
-From the upsets plots above we observe that the number of differentially expressed genes for Neuronal_inhib is 0, for Neuronal_excit is 44. Moreover, it is evident that Neuronal_inhib and Neuronal_excit share 203 differentially expressed genes.
-
-## Cell-level analysis: Mixed models {#sec-mmDS}
-
-We can fit for each gene a mixed model to the cell-level measurement data.
-
-1. fitting linear mixed models (LMMs) on log-normalized data with observational weights, 
-2. fitting LMMs on variance-stabilized data; and,
-3. fitting generalized linear mixed models (GLMMs) directly on counts
-
-In each case, a $\sim 1 + \text{group_id} + (1\,|\,\text{sample_id})$ model is fit for each gene, optimizing the log-likelihood (i.e., `REML = FALSE`). P-values are calculated using the estimates of degrees of freedom specifying by argument `df` (default `"Satterthwaite"`). Fitting, testing and moderation are applied subpopulation-wise. For differential testing, `mmDS` will only consider:
-
-- subpopulations with at least `n_cells` cells (default 10) in at least `n_samples` samples (default 2)
-- genes with a count >= `min_count` (default 1) in at least `min_cells` (default 20)
-
-Mixed model based approaches can be run directly on cell-level measurements, and do not require prior aggregation:
-
-```{r,message= FALSE}
-#DS Analysis for mm dream method
-DS.analysis.Visualization.mm(sim,"dream",NULL,8)
-```
-
-```{r}
-#DS Analysis for mm nbinom method
-DS.analysis.Visualization.mm(sim,"nbinom",NULL,0)
-```
-
-```{r}
-#DS Analysis for mm nbinom method
-DS.analysis.Visualization.mm(sim,"vst","DESeq2",0)
-```
-
-From the upsets plots above we observe that for methods "dream" and "nbinom" the number of differentially expressed genes for Neuronal_inhib is 0, for Neuronal_excit is 44. Moreover, it is evident that Neuronal_inhib and Neuronal_excit share 72 differentially expressed genes.
-On ther other hand, for method "vst" with "DESeq2",  the number of differentially expressed genes for Neuronal_inhib is 9, for Neuronal_excit is 9 and both share 43 DE genes.
-
+From the upsets plots above we observe that for methods "dream" and "nbinom" the number of differentially expressed genes for Neuronal_inhib is 0, for Neuronal_excit is 43. Moreover, it is evident that Neuronal_inhib and Neuronal_excit share 68 differentially expressed genes.
+On ther other hand, for method "vst" with "DESeq2",  the number of differentially expressed genes for Neuronal_inhib and Neuronal_excit is 0 and both share 500 DE genes.
