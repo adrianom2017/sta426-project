@@ -53,6 +53,7 @@ We summarise this section by giving an overview of the whole procedure to genera
 suppressPackageStartupMessages({
 library(SingleCellExperiment)
 library(scater)
+library(tidyverse)
 library(ggplot2)
 library(gridExtra)
 library(grid)
@@ -95,19 +96,37 @@ p_dd = c(0.9, 0, 0.1, 0, 0, 0)
 probs = list(cluster = freq_cluster,
              sample = rep(1/n_sample, n_sample),
              group = rep(1/n_group, n_group))
-lcf = 4
+lfc = 4
 
 #Set params our simulation
 n_comp = 10
 n_cells = rep(n_cells_muscat / n_sample, n_sample)
 kNN = 10
 kNN_subsample = 5
-logFC = list(magnitude = lcf, proportion = p_dd[3]) #corresponds to p_dd
-verbose = 2
+#logFC = list(magnitude = lfc, proportion = p_dd[3]) #corresponds to p_dd
+verbose = 0
 
 #Run simulations
-sce_muscat = simData(sce_prep, n_genes = n_genes, n_cells = n_cells_muscat, p_dd = p_dd, probs = probs)
-sce_sim = create_dataset(sce_prep, n_comp, n_cells, kNN, kNN_subsample, n_sample, logFC, probs, verbose)
+sce_muscat = simData(sce_prep, n_genes = n_genes, n_cells = n_cells_muscat, p_dd = p_dd, probs = probs, lfc = lfc)
+
+#Extract meta data
+meta = metadata(sce_muscat)$gene_info %>% select(cluster_id, logFC, sim_gene)
+meta$logFC[is.na(meta$logFC)] = 0 
+
+#Set up sce to replicate muscat simulation
+gene_id = meta %>% filter(cluster_id == "Neuronal_excit") %>% select(sim_gene)
+idx = sapply(gene_id$sim_gene, function(x){
+  which(x == rownames(sce_prep))
+})
+#hist(table(idx))
+sce_prep2 = sce_prep[idx,]
+logFC = list("muscat_data" = meta)
+sce_sim = create_dataset(sce_prep2, n_comp, n_cells, kNN, kNN_subsample, n_sample, logFC, probs, verbose)
+
+#Compare metadata
+head(metadata(sce_muscat)$gene_info,10)
+head(metadata(sce_sim)$gene_info,5)
+metadata(sce_sim)$cluster_info
 ```
 
 ## Augment data sets
@@ -147,6 +166,7 @@ hist(logcounts(sce_sim))
 countSum = data.frame(sce_prep = sum(counts(sce_prep)[,subsample]),
                       sce_muscat = sum(counts(sce_muscat)),
                       sce_sim = sum(counts(sce_sim)))
+par(mfrow=c(1,1))
 barplot(as.matrix(countSum), main = "Count sum of different SingleCellExperiment data sets")
 
 table(metadata(sce_sim)$category)
