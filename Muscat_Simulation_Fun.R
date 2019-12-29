@@ -6,7 +6,7 @@ compute.pd <- function(sim,assay,fun){
   return(pb)
 }
 
-DS.analysis.pd <- function(sim,assay,fun,ds_method,topnumber){
+DS.analysis.pd <- function(sim,assay,fun,ds_method,topnumber,gene_info_pos){
   
   #Aggregation of single-cell to pseudobulk data for sum counts
   pb <- compute.pd(sim,assay,fun) 
@@ -27,10 +27,26 @@ DS.analysis.pd <- function(sim,assay,fun,ds_method,topnumber){
   tbl <- arrange(tbl, tbl$p_adj.loc)
   
   print(metadata(sim))
-  sim_df<- metadata(sim)[3]
-  print("sim_df")
+  
+  #Muscat
+  #sim_df<- metadata(sim)[3]
+  # sim_map <-select(sim_df$gene_info, "gene","cluster_id","category")
+  
+  sim_df<- metadata(sim)[gene_info_pos]
   print(sim_df)
-  sim_map <-data.frame(sim_df$gene_info[,1:3])
+  if (gene_info_pos == 3){
+    sim_map <-select(sim_df$gene_info, "gene","cluster_id","category")
+  }
+  else{
+    sim_map <-select(sim_df$gene_info2, "gene","cluster_id","category")
+  }
+
+  
+  # Our simulation
+  #sim_df<- metadata(sim)[4]
+  #sim_map <-data.frame(sim_df$gene_info[,"gene","cluster_id","category"])
+  #sim_map <-select(sim_df$gene_info2, "gene","cluster_id","category")
+  
   #Incomporate category type into tbl object
   print("SIM MAP")
   print(sim_map)
@@ -48,6 +64,9 @@ DS.analysis.pd <- function(sim,assay,fun,ds_method,topnumber){
   top <- select(top, -c("contrast", "p_adj.glb"))
   top$gene <- gsub("^.*\\.", "", top$gene)
   format(data.frame(top, row.names = NULL), digits = 3)
+  
+  print("TOP")
+  print(top)
   
   #Preparing TPR vs FDR object
   tbl$category <- lapply(tbl$category, function(x) {gsub("de", 1, x) })
@@ -73,15 +92,31 @@ compute.mm <- function(sim,ds_method, vst){
   return(res)
 }
 
-DS.analysis.mm <- function(sim,ds_method,type,vst,topnumber){
+DS.analysis.mm <- function(sim,ds_method,type,vst,topnumber,gene_info_pos){
   
   res <- compute.mm(sim,ds_method,vst)
   
   tbl <- rbind(res$Neuronal_excit,res$Neuronal_inhib)
   tbl <- arrange(tbl, tbl$p_adj.loc)
   
-  sim_df<- metadata(sim)[3]
-  sim_map <-data.frame(sim_df$gene_info[,1:3])
+  #Muscat
+  #sim_df<- metadata(sim)[3]
+  #sim_map <-select(sim_df$gene_info, "gene","cluster_id","category")
+  
+  
+  sim_df<- metadata(sim)[gene_info_pos]
+  if (gene_info_pos == 3){
+    sim_map <-select(sim_df$gene_info, "gene","cluster_id","category")
+  }
+  else{
+    sim_map <-select(sim_df$gene_info2, "gene","cluster_id","category")
+  }
+  
+  
+  # Our Sim
+  #sim_df<- metadata(sim)[4]
+  #sim_map <-select(sim_df$gene_info2, "gene","cluster_id","category")
+  
   #Incomporate category type into tbl object
   tbl <- merge(tbl,sim_map,by=c("gene","cluster_id"))
   
@@ -187,6 +222,8 @@ pbHeatmap_plots<- function(sim,res){
   
   # single gene across all clusters
   # top-20 DS genes for single clusters
+  print(typeof(sim))
+  print(typeof(res))
   print(pbHeatmap(sim, res, k = "Neuronal_inhib"))
   print(pbHeatmap(sim, res, k = "Neuronal_excit"))
   
@@ -209,7 +246,11 @@ DS.analysis.Visualization.mm <-function(ds,ds_method,type,vst,topnumber,num){
   Violin_plots(sim,res_by_k,cs_by_k)
   
   ### Between-cluster concordance
+  print("res_by_k")
+  print(res_by_k)
   ds_gs <- lapply(res_by_k, pull, "gene")
+  print("ds_gs")
+  print(ds_gs)
   print(upset(fromList(ds_gs), sets = levels(sim$cluster_id)))
   
   ### DR colored by expression
@@ -236,12 +277,16 @@ DS.analysis.Visualization.pb <-function(ds,assay,fun,ds_method,topnumber,num){
   res <-ds$res
   tbl <- ds$tbl
   res_by_k <- ds$res_by_k
+  print("dim(sim")
+  print(dim(sim))
   
+  print("dim(res")
+  print(dim(sim))
   
   if (!(assay == "counts" && fun=="sum" && ds_method == "limma-voom")
       && !(assay=="logcounts" && fun == "mean" && ds_method =="edgeR")){
     ### Pseudobulk-level heatmaps
-    pbHeatmap_plots(sim,res)
+    #pbHeatmap_plots(sim,res)
     
   }
   
@@ -250,7 +295,13 @@ DS.analysis.Visualization.pb <-function(ds,assay,fun,ds_method,topnumber,num){
   Violin_plots(sim,res_by_k,cs_by_k)
   
   ### Between-cluster concordance
+  print("res_by_k")
+  print(res_by_k)
+  
   ds_gs <- lapply(res_by_k, pull, "gene")
+  
+  print("ds_gs")
+  print(ds_gs)
   print(upset(fromList(ds_gs), sets = levels(sim$cluster_id)))
   
   ### DR colored by expression
