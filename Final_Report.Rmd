@@ -1,6 +1,6 @@
 ---
 title: "Final_Report"
-author: "Adriano Martinelli"
+author: "Adriano Martinelli, Chrysa Papadopoulou, Iliana Papadopoulou" 
 date: "23/12/2019"
 output: html_document
 ---
@@ -9,12 +9,14 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-# Introduction
-The aim of this project is to extend the simulation framework established in the group Prof. Mark Robinson in collaboration with Pierre Luc Germain. More precisely the ``muscat`` simulation framework currently used in the group does not take gene-gene correlation into account and it is suspected that this may bias the evaluation of downstream analysis techniques. It is well known that gene-gene correlation is observed in real world data sets and we want to explore the effect of gene-gene correlation on the differential expression (DE) analysis.
+## Introduction
+Single-cell RNA sequencing technologies allow the quantification of RNA molecules in biological samples in counts of reads mapped to the genes. Indeed, they are used to profile genome-wide high-resolution instances of gene expression activity and modifications in individual cells over time as well as monitor discrepancies in gene expression in different groups or treatments across conditions.However, the presence of multi-condition scRNA-seq datasets dictates the need to perform sample-level inferences.    
 
-## Describe data set
-### TODO
+The aim of this project is to extend the simulation framework Muscat (Multi-sample multi-group scRNA-seq analysis tools) [1] established in the group of Prof. Mark Robinson in collaboration with Pierre Luc Germain. More precisely, the ``muscat`` simulation framework currently used in the group does not take the gene-gene correlation into account, sampling each gene in each cell independently. It is suspected that this may bias the evaluation of downstream analysis techniques. Since it is well known that gene-gene correlation is observed in real world data sets, the goal of our analysis is to explore the effect of gene-gene correlation on the differential expression (DE) analysis, while compairing it with the ``muscat`` simulation framework.
 
+# Datasets
+
+For performimg our simulations we utilized the single-cell RNA-seq of mouse cortex injected with Lipopolysaccharide (LPS) or with a vehicle treatment dataset (Crowell et al.)[1].
 # Results
 
 # Methods
@@ -61,15 +63,40 @@ library(edgeR)
 library(irlba)
 library(muscat)
 library(countsimQC)
-library(TMB)})
+library(TMB)
+library(cowplot)
+library(scDblFinder)
+library(dplyr)
+library(UpSetR)
+library(uwot)
+library(Rtsne)  
+  })
 #library(sta426)#install_github(adrianom/sta426-project/sta426)
 
 #Load simulation functions
 source('./fun.R', echo=TRUE)
+source('./Preprocessing_fun.R', echo=TRUE)
 
 #Load object
 sce = readRDS("week13_SCE_clustered.rds")
 sce = logNormCounts(sce)
+```
+
+## Preprocess data
+```{r, fig.cap=c('Plotting data','Distributions of QC metrics',"Top 50 most-expressed features","Distribution of percentages of variance explained across genes for various factors","Expression profile across cells")}
+sce= prep_steps(sce)
+```
+
+```{r}
+# make WT reference group
+sce$group_id <- relevel(sce$group_id, ref = "WT")
+```
+
+```{r}
+# reorder sample levels
+m <- match(levels(sce$sample_id), sce$sample_id)
+o <- order(sce$group_id[m])
+sce$sample_id <- factor(sce$sample_id, levels = levels(sce$sample_id)[o])
 ```
 
 ## Run simulation
@@ -235,3 +262,7 @@ countsimQCReport(ddsList = QCdata, outputFile = "countsim_report.html",
 # Conclusions
 
 # Discussion
+
+# Refereneces
+
+[1] https://www.biorxiv.org/content/10.1101/713412v1.full
