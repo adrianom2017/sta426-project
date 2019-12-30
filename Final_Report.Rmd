@@ -260,19 +260,20 @@ countsimQCReport(ddsList = QCdata, outputFile = "countsim_report.html",
 source('./Muscat_Simulation_Fun.R', echo=TRUE)
 ```
 
+
 ```{r}
 
-Simulation_DS_analysis<-function(sce,pos){
+Simulation_DS_analysis<-function(sce,pos,sim_type){
   methods <- list("sum_counts_edgeR","sum_counts_limma-voom","mean_logcounts_edgeR",
              "mean_logcounts_limma-voom","mm_dream","mm_nbinom","mm_vst_DESeq")
   g <- ggplot() + geom_point()
-  #print(typeof(g))
+  print(typeof(g))
 
   num = 0
   for (method in methods){
     num = num +1
     print(method)
-    #print("Hello")
+    print("Hello")
     method_pieces <- strsplit(method, "_")
     #print(method_pieces)
     method_substring <- matrix(unlist(method_pieces), ncol=3, byrow=TRUE)
@@ -298,7 +299,7 @@ Simulation_DS_analysis<-function(sce,pos){
       ds <- DS.analysis.mm(sce,method_substring[2],method_substring[1],vst,topnumber,pos)
       
       #Visualization
-      p <- DS.analysis.Visualization.mm(ds,method_substring[2],method_substring[1],vst,topnumber,num)
+      p <- DS.analysis.Visualization.mm(ds,method_substring[2],method_substring[1],vst,topnumber,num,sim_type)
       
     }
     else{
@@ -308,12 +309,19 @@ Simulation_DS_analysis<-function(sce,pos){
       
       #DS pb analysis
       ds <- DS.analysis.pd(sce,method_substring[2],method_substring[1],method_substring[3], topnumber,pos)
+      print("DS")
+      print(ds)
+      print("LEN Neur excit")
+      print(length(ds$res$table$B$Neuronal_excit$logFC)) # M : 6948, S : 9373
+       print("LEN Neur inhib")
+      print(length(ds$res$table$B$Neuronal_inhib$logFC)) # M : 4762 S : 9229
       #Visualization
-      p <- DS.analysis.Visualization.pb(ds,method_substring[2],method_substring[1],method_substring[3],topnumber,num)
+      p <- DS.analysis.Visualization.pb(ds,method_substring[2],method_substring[1],method_substring[3],topnumber,num,sim_type)
     
     }
     
     print("DONE!!")
+    #break
   }
 }
 
@@ -322,13 +330,14 @@ Simulation_DS_analysis<-function(sce,pos){
 
 ##  Muscat Simulation
 ```{r}
-Simulation_DS_analysis(sce_muscat,3)
+Simulation_DS_analysis(sce_muscat,3,"muscat")
 ```
 
 ## Our Simulation
 ```{r}
-Simulation_DS_analysis(sce_sim,4)
+Simulation_DS_analysis(sce_sim,4,"correlation_structure")
 ```
+
 
 
 # Results
