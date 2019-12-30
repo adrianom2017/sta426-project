@@ -6,6 +6,13 @@ compute.pd <- function(sim,assay,fun){
   return(pb)
 }
 
+
+Myfunc <- function(data, true_DE_genes) {
+  DE_genes_res <- (true_DE_genes %in% data["Ground_Truth"]) & (DE_genes %in% data[method_name])
+}
+
+
+
 DS.analysis.pd <- function(sim,assay,fun,ds_method,topnumber,gene_info_pos){
   
   #Aggregation of single-cell to pseudobulk data for sum counts
@@ -21,45 +28,26 @@ DS.analysis.pd <- function(sim,assay,fun,ds_method,topnumber,gene_info_pos){
   # filter & sort
   #tbl <- dplyr::filter(tbl, p_adj.loc < 0.05,logFC > 1)
   
-  
-  print("TBL 1")
-  print(tbl)
   tbl <- arrange(tbl, tbl$p_adj.loc)
-  
-  print(metadata(sim))
-  
-  #Muscat
-  #sim_df<- metadata(sim)[3]
-  # sim_map <-select(sim_df$gene_info, "gene","cluster_id","category")
+
   
   sim_df<- metadata(sim)[gene_info_pos]
-  print(sim_df)
+
   if (gene_info_pos == 3){
     sim_map <-select(sim_df$gene_info, "gene","cluster_id","category")
-    print("metadata(sim)$gene_info$logFC")
-    print(length(metadata(sim)$gene_info$logFC)) #19122
+    #print("metadata(sim)$gene_info$logFC")
+    #print(length(metadata(sim)$gene_info$logFC)) #19122
   }
   else{
     sim_map <-select(sim_df$gene_info2, "gene","cluster_id","category")
-    print("metadata(sim)$gene_info2$logFC")
-    print(length(metadata(sim)$gene_info2$logFC)) #19122
+    #print("metadata(sim)$gene_info2$logFC")
+    #print(length(metadata(sim)$gene_info2$logFC)) #19122
   }
   
   
-  # Our simulation
-  #sim_df<- metadata(sim)[4]
-  #sim_map <-data.frame(sim_df$gene_info[,"gene","cluster_id","category"])
-  #sim_map <-select(sim_df$gene_info2, "gene","cluster_id","category")
-  
   #Incomporate category type into tbl object
-  print("SIM MAP")
-  print(sim_map)
-  print("TBL")
-  print(tbl)
   tbl <- merge(tbl,sim_map,by=c("gene","cluster_id"))
   
-  print("TBL final")
-  print(tbl)
   # no. of DS genes per cluster
   res_by_k <- split(tbl, tbl$cluster_id)
   vapply(res_by_k, nrow, numeric(1))
@@ -69,13 +57,12 @@ DS.analysis.pd <- function(sim,assay,fun,ds_method,topnumber,gene_info_pos){
   top$gene <- gsub("^.*\\.", "", top$gene)
   format(data.frame(top, row.names = NULL), digits = 3)
   
-  print("TOP")
-  print(top)
+  tbl$category <- lapply(tbl$category, function(x) {gsub("de", "1", x) })
+  tbl$category <- lapply(tbl$category, function(x) {gsub("ee", "0", x) })
   
-  #Preparing TPR vs FDR object
-  tbl$category <- lapply(tbl$category, function(x) {gsub("de", 1, x) })
-  tbl$category <- lapply(tbl$category, function(x) {gsub("ee", 0, x) })
+  tbl$category <- as.integer(unlist(tbl$category))
   
+
   ## Empty COBRAData object:
   COBRAData()
   
@@ -87,9 +74,54 @@ DS.analysis.pd <- function(sim,assay,fun,ds_method,topnumber,gene_info_pos){
   truth = as.data.frame(as.integer(unlist(tbl$category)))
   colnames(truth) = method_name
   
+  print("TBL")
+  print(tbl)
+  
+  tbl$category_method[tbl$p_val < 0.05] <- 1
+  tbl$category_method[tbl$p_val >= 0.05] <- 0
+  
+  DE_genes <- tbl$gene[tbl$category_method == 1]
+  print(length(DE_genes))
+  #print(DE_genes)
+  EE_genes <- tbl$gene[tbl$category_method == 0]
+  print(length(EE_genes))
+  #print(EE_genes)
+  
+  true_DE_genes <- tbl$gene[tbl$category == 1]
+  print(length(true_DE_genes))
+  #print(true_DE_genes)
+  true_EE_genes <- tbl$gene[tbl$category == 0]
+  print(length(true_EE_genes))
+  #print(true_EE_genes)
+  
+  # example of list input (list of named vectors)
+  #listInput <- list(Method = c(DE_genes,EE_genes), Truth  =c(true_DE_genes,true_EE_genes) )
+  
+  # Create an UpsetR Plot
+  data <-tbl %>% select(contains("category"))
+  print(head(data,5))
+  print("END test")
+  colnames(data) <- c("Ground_Truth",method_name)
+  
+
+  print(upset(data,main.bar.color = "black", mainbar.y.label = "DE/EE gene Intersections", 
+        sets.x.label = "genes per Category",query.legend = "bottom",queries =  list(list(query = Myfunc, 
+                      params = list(0), color = "orange", active = T),
+                      list(query = intersects, params = list(method_name), color = "red", active = F), 
+                      list(query = intersects,params = list("Ground_Truth"), color = "yellow", active = F),
+                      list(query = intersects,params = list(method_name, "Ground_Truth"), color = "green",active = T))))
+  
+  
+  
+  
+  #print(upset(tbl$category),sets = levels(sim$gene))
+  #print(upset(data.frame(tbl$category_method)),sets = levels(sim$gene))
+  
   return(list(sim = sim,res = res ,tbl = tbl,res_by_k = res_by_k, pval  = pval,padj = padj, truth = truth ))
   
 }
+
+
 
 compute.mm <- function(sim,ds_method, vst){
   res <- muscat::mmDS(sim, method = ds_method, vst = vst)
@@ -103,11 +135,6 @@ DS.analysis.mm <- function(sim,ds_method,type,vst,topnumber,gene_info_pos){
   tbl <- rbind(res$Neuronal_excit,res$Neuronal_inhib)
   tbl <- arrange(tbl, tbl$p_adj.loc)
   
-  #Muscat
-  #sim_df<- metadata(sim)[3]
-  #sim_map <-select(sim_df$gene_info, "gene","cluster_id","category")
-  
-  
   sim_df<- metadata(sim)[gene_info_pos]
   if (gene_info_pos == 3){
     sim_map <-select(sim_df$gene_info, "gene","cluster_id","category")
@@ -115,11 +142,6 @@ DS.analysis.mm <- function(sim,ds_method,type,vst,topnumber,gene_info_pos){
   else{
     sim_map <-select(sim_df$gene_info2, "gene","cluster_id","category")
   }
-  
-  
-  # Our Sim
-  #sim_df<- metadata(sim)[4]
-  #sim_map <-select(sim_df$gene_info2, "gene","cluster_id","category")
   
   #Incomporate category type into tbl object
   tbl <- merge(tbl,sim_map,by=c("gene","cluster_id"))
@@ -148,6 +170,7 @@ DS.analysis.mm <- function(sim,ds_method,type,vst,topnumber,gene_info_pos){
   colnames(padj) = method_name
   truth = as.data.frame(as.integer(unlist(tbl$category)))
   colnames(truth) = method_name
+
   
   return(list(sim = sim,res = res ,tbl = tbl,res_by_k = res_by_k, pval  = pval,padj = padj, truth = truth))
   
@@ -250,12 +273,10 @@ DS.analysis.Visualization.mm <-function(ds,ds_method,type,vst,topnumber,num,sim_
   Violin_plots(sim,res_by_k,cs_by_k)
   
   ### Between-cluster concordance
-  print("res_by_k")
-  print(res_by_k)
   ds_gs <- lapply(res_by_k, pull, "gene")
-  print("ds_gs")
-  print(ds_gs)
   print(upset(fromList(ds_gs), sets = levels(sim$cluster_id)))
+  
+  #decideTests(tbl$)
   
   ### DR colored by expression
   if ((ds_method == "dream")){
@@ -285,11 +306,7 @@ DS.analysis.Visualization.pb <-function(ds,assay,fun,ds_method,topnumber,num,sim
   res <-ds$res
   tbl <- ds$tbl
   res_by_k <- ds$res_by_k
-  print("dim(sim")
-  print(dim(sim))
   
-  print("dim(res")
-  print(dim(sim))
   
   if (!(assay == "counts" && fun=="sum" && ds_method == "limma-voom")
       && !(assay=="logcounts" && fun == "mean" && ds_method =="edgeR")){
@@ -303,13 +320,9 @@ DS.analysis.Visualization.pb <-function(ds,assay,fun,ds_method,topnumber,num,sim
   Violin_plots(sim,res_by_k,cs_by_k)
   
   ### Between-cluster concordance
-  print("res_by_k")
-  print(res_by_k)
   
   ds_gs <- lapply(res_by_k, pull, "gene")
   
-  print("ds_gs")
-  print(ds_gs)
   print(upset(fromList(ds_gs), sets = levels(sim$cluster_id)))
   
   ### DR colored by expression
