@@ -9,7 +9,7 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## Introduction
+# Introduction
 Single-cell RNA sequencing technologies allow the quantification of RNA molecules in biological samples in counts of reads mapped to the genes. Indeed, they are used to profile genome-wide high-resolution instances of gene expression activity and modifications in individual cells over time as well as monitor discrepancies in gene expression in different groups or treatments across conditions.However, the presence of multi-condition scRNA-seq datasets dictates the need to perform sample-level inferences.    
 
 The aim of this project is to extend the simulation framework Muscat (Multi-sample multi-group scRNA-seq analysis tools) [1] established in the group of Prof. Mark Robinson in collaboration with Pierre Luc Germain. More precisely, the ``muscat`` simulation framework currently used in the group does not take the gene-gene correlation into account, sampling each gene in each cell independently. It is suspected that this may bias the evaluation of downstream analysis techniques. Since it is well known that gene-gene correlation is observed in real world data sets, the goal of our analysis is to explore the effect of gene-gene correlation on the differential expression (DE) analysis, while compairing it with the ``muscat`` simulation framework.
@@ -18,8 +18,56 @@ The aim of this project is to extend the simulation framework Muscat (Multi-samp
 
 For performimg our simulations we utilized the single-cell RNA-seq of mouse cortex injected with Lipopolysaccharide (LPS) or with a vehicle treatment dataset (Crowell et al.)[1].
 
+The class SingleCellExperiment keeps track of the counts and their associated metadata within a single object.
+
+![](SingleCellExperiment_class.png)
+
+## Preprocessing 
+
+Firstly, we filter the doublet cells, produced directly from counts using overclustering-based generation of artifical doublets, separately on each sample using the scDblFinder class [2]. After removing genes that are not detected across all cells, we implement Quality control and filtering, using the R scater package [3], to correct for technical effects that distort the downstream analysis. In the provided SingleCellExperiment object, we also integrate various per-cell quality control statistics from perCellQCMetrics function. The first plot demonstrates an expected increasing number of detected genes with an increasing total count. Each point represents a cell that is coloured according to its cluster id. We then remove cells that have very few or many detected genes. Therefore, in the second figure we plot the distributions of QC metrics, the observation of which helps us to select the apprppriate thresholds for removing possible low-quality genes. 
+
+A better way to choose these thresholds is implemented via the isOutlier function , where we exclude cells whose feature counts, number of detected features, and percentage of mitochondrial genes go beyond 2 Median Absolute Deviations (MADs) of the median and the percentage of mitochondrial genes overcomes 8\%. In addition, we plot the top 50  most-expressed features and subsequently remove the lowly expressed genes. Indeed, in the plot the rows correspond to genes and bars describe the expression of genes in single cells. Genes are sorted based on the median expression of each gene, which is indicated by circles.
+
+We then calculate the distribution of percentages of the variance of the normalized log-expression values across cells that is explained by each variable/factor in the colData of our sce object, using the getVarianceExplained() function. In the density plot we observe that the percentages are generally small (0.08%,0.1%, 0.5%), meaning that that the expression profiles of most genes are not strongly associated with these factors. Finally, we compute that sum-factors, normalize data and visualize the expression values for a subset of genes (e.g the first 6 genes) across cells using the plotExpression() function. [4]
+
+
+```{r}
+#Load data
+suppressPackageStartupMessages({
+library(SingleCellExperiment)
+library(scater)
+library(tidyverse)
+library(ggplot2)
+library(gridExtra)
+library(grid)
+library(edgeR)
+library(irlba)
+library(muscat)
+library(countsimQC)
+library(TMB)
+library(cowplot)
+library(scDblFinder)
+library(dplyr)
+library(UpSetR)
+library(uwot)
+library(Rtsne)  
+  })
+#library(sta426)#install_github(adrianom/sta426-project/sta426)
+
+source('./Preprocessing_fun.R', echo=TRUE)
+
+#Load object
+sce = readRDS("week13_SCE_clustered.rds")
+
+```
+
+```{r, fig.cap=c('Plotting data','Distributions of QC metrics',"Top 50 most-expressed features","Distribution of percentages of variance explained across genes for various factors","Expression profile across cells")}
+
+sce= prep_steps(sce)
+```
 
 # Methods
+
 ## Simulation
 We created a simulation framework that produces a correlation structure in the simulated counts to explore the effect of such correlation on analysis techniques. To make our results comprable to existing methods (muscat simulation framework) we tried to produce a simulation that allows us to generate data sets with similar characteristics as the muscat framework in terms of number of cells, number of samples, number of cluster and the distribution of those cells across samples and clusters. The typical input data set is a ``SingleCellExperiment`` file which consits of multiple wild types samples containing multiple cell types.
 
@@ -49,54 +97,10 @@ We summarise this section by giving an overview of the whole procedure to genera
 * For each sample and cell type generate the mean count based on PC averaging of a subset of _k_-nearest neigbours
 * Based on mean count matrix, gene-wise dispersion and library size sample artificial counts from negative binomial
 
-### Simulation
-## Load data
 ```{r}
-suppressPackageStartupMessages({
-library(SingleCellExperiment)
-library(scater)
-library(tidyverse)
-library(ggplot2)
-library(gridExtra)
-library(grid)
-library(edgeR)
-library(irlba)
-library(muscat)
-library(countsimQC)
-library(TMB)
-library(cowplot)
-library(scDblFinder)
-library(dplyr)
-library(UpSetR)
-library(uwot)
-library(Rtsne)  
-  })
-#library(sta426)#install_github(adrianom/sta426-project/sta426)
-
 #Load simulation functions
 source('./fun.R', echo=TRUE)
-source('./Preprocessing_fun.R', echo=TRUE)
-
-#Load object
-sce = readRDS("week13_SCE_clustered.rds")
-sce = logNormCounts(sce)
-```
-
-## Preprocess data
-```{r, fig.cap=c('Plotting data','Distributions of QC metrics',"Top 50 most-expressed features","Distribution of percentages of variance explained across genes for various factors","Expression profile across cells")}
-#sce= prep_steps(sce)
-```
-
-```{r}
-# make WT reference group
-#sce$group_id <- relevel(sce$group_id, ref = "WT")
-```
-
-```{r}
-# reorder sample levels
-#m <- match(levels(sce$sample_id), sce$sample_id)
-#o <- order(sce$group_id[m])
-#sce$sample_id <- factor(sce$sample_id, levels = levels(sce$sample_id)[o])
+#sce = logNormCounts(sce)
 ```
 
 ## Run simulation
@@ -256,17 +260,37 @@ countsimQCReport(ddsList = QCdata, outputFile = "countsim_report.html",
 ```
 
 ## DE Analysis
+
+The goal is to monitor population-specific state modifications across conditions. Consequently, we will test both aggregation-based approches (pbDS), which explicitly consider *pseudobulk* data and mixed models, which explicitly consider cell-level measurements (mmDS). In all cases, each gene is checked for state changes in each cluster.
+
+Firstly, we aggregate measurements for each sample in each cluster to pseudobulk and create a MDS plot in pseuobulk-level to study the properties of samples. After reformatting the results, we filter them to keep hits with FDR < 5\% and visualize the top hits with the lowest adj. p-value in each cluster in the case of pseudobulk methods. On the other hand, in cell-level measurements, we use a mixed model for each gene, without aggragation beforehand. 
+
+We simulate 7 methods in total, including sum counts in edgeR, sum counts in limma-voom, mean logcounts in edgeR, mean logcounts in limma-voom, mm dream, mm nbinom and mm vst DESeq, where in each case DE genes are retrieved when p-value<0.05. For each method we calculate the ground truth, which is included in the category column of the metadata of our sce object. [5]
+
+### Visualization tools
+
+For visualization analysis, we create violin plots, which constitute expression profiles for the top-8 DS genes with the lowest adj. p-value in Neuronal_excit and Neuronal_inhib clusters using the `plotExpression` function. We also use t-SNE representations colored by the expression of the top-8 DS genes, sampling at most 100 cells from each cluster. Moreover, we produce UpSet-plots for each method that visualizes the number of DE genes intersecting across clusters or the ones that are unique, as well as the number of DE and EE genes that are shared between different methods and the ground truth. In the end, we calculate the true positive rate (TPR) vs false discovery rate (FDR) for each method. [5]
+
+
 ```{r,message=FALSE}
 source('./Muscat_Simulation_Fun.R', echo=TRUE)
 ```
 
 
-```{r}
+```{r,fig.width=5}
 
 Simulation_DS_analysis<-function(sce,pos,sim_type){
   methods <- list("sum_counts_edgeR","sum_counts_limma-voom","mean_logcounts_edgeR",
-             "mean_logcounts_limma-voom","mm_dream","mm_nbinom","mm_vst_DESeq")
-  g <- ggplot() + geom_point()
+             "mean_logcounts_limma-voom")
+  
+  # methods <- list("sum_counts_edgeR","sum_counts_limma-voom","mean_logcounts_edgeR",
+  #           "mean_logcounts_limma-voom","mm_dream","mm_nbinom","mm_vst_DESeq")
+  
+  #violin_1_plot  = list()
+  #violin_2_plot  = list()
+  #upset_plot_cluster = list()
+  #ds_expression_plot = list()
+  #TPR.vs.FDR_plot = list()
 
   num = 0
   for (method in methods){
@@ -296,7 +320,7 @@ Simulation_DS_analysis<-function(sce,pos,sim_type){
       ds <- DS.analysis.mm(sce,method_substring[2],method_substring[1],vst,topnumber,pos)
       
       #Visualization
-      p <- DS.analysis.Visualization.mm(ds,method_substring[2],method_substring[1],vst,topnumber,num,sim_type)
+      plots <- DS.analysis.Visualization.mm(ds,method_substring[2],method_substring[1],vst,topnumber,num,sim_type)
       
     }
     else{
@@ -313,13 +337,51 @@ Simulation_DS_analysis<-function(sce,pos,sim_type){
       # print("LEN Neur inhib")
       #print(length(ds$res$table$B$Neuronal_inhib$logFC)) # M : 4762 S : 9229
       #Visualization
-      p <- DS.analysis.Visualization.pb(ds,method_substring[2],method_substring[1],method_substring[3],topnumber,num,sim_type)
+      plots <- DS.analysis.Visualization.pb(ds,method_substring[2],method_substring[1],method_substring[3],topnumber,num,sim_type)
     
     }
     
+  #  if (!(is_null(plots$v1))){
+  #    violin_1_plot[[num]] <- plots$v1
+  #  }
+  #  if (!is_null(plots$v2)){
+  #     violin_2_plot[[num]] <- plots$v2
+  #  }
+    
+  #  if (!is_null(plots$upset)){
+  #    upset_plot_cluster[[num]] <-  plots$upset
+  #  }
+  #  if (!is_null(plots$ds_expression)){
+  #    ds_expression_plot[[num]] <- plots$ds_expression
+  #  }
+  #  if (!is_null(plots$TPR.vs.FDR)){
+  #    TPR.vs.FDR_plot[[num]] <- plots$TPR.vs.FDR
+  # }
+  
+
+
     print("DONE!!")
-    break
+    for(element in plots){
+      if (!is_null(element)){
+        print(element) 
+      }
+    
+    }
+    #break
+  
   }
+ 
+  # violin_1 = plot_grid(plotlist=violin_1_plot,labels = c('A', 'B','C','D','E','F','G'), label_size = 12)
+  #violin_2 =  plot_grid(plotlist=violin_2_plot,labels =  c('A', 'B','C','D','E','F','G'), label_size = 12)
+  #upset = plot_grid(plotlist=upset_plot_cluster,labels =  c('A', 'B','C','D','E','F','G'), label_size = 12)
+  #ds_expression = plot_grid(plotlist=ds_expression_plot,labels =  c('A', 'B','C','D','E','F','G'), label_size = 12)
+  #TPR.vs.FDR = plot_grid(plotlist=TPR.vs.FDR_plot,labels =  c('A', 'B','C','D','E','F','G'), label_size = 12)
+  
+  #save_plot("violin_1.png", violin_1, ncol = 1)
+  #save_plot("violin_2.png", violin_2, ncol = 1)
+  #save_plot("upset.png", upset, ncol = 1)
+  #save_plot("ds_expression.png", ds_expression, ncol = 1)
+  #save_plot("TPR.vs.FDR.png", TPR.vs.FDR, ncol = 1)
 }
 
 
@@ -358,6 +420,7 @@ From the upsets plots above we observe that the number of differentially express
 From the upsets plots above we observe that for methods "dream" and "nbinom" the number of differentially expressed genes for Neuronal_inhib is 0, for Neuronal_excit is 43. Moreover, it is evident that Neuronal_inhib and Neuronal_excit share 68 differentially expressed genes.
 On ther other hand, for method "vst" with "DESeq2",  the number of differentially expressed genes for Neuronal_inhib and Neuronal_excit is 0 and both share 500 DE genes.
 
+FDR cutoffs of 1%, 5%, and 10%; dashed lines indicate desired FDRs
 
 # Conclusions
 
@@ -366,3 +429,8 @@ On ther other hand, for method "vst" with "DESeq2",  the number of differentiall
 # Refereneces
 
 [1] https://www.biorxiv.org/content/10.1101/713412v1.full
+[2] https://bioconductor.org/packages/release/bioc/html/scDblFinder.html
+[3] http://bioconductor.org/packages/release/bioc/html/scater.html 
+[4] https://bioconductor.org/packages/devel/bioc/vignettes/scater/inst/doc/overview.html#3_quality_control
+[5] Our analysis is based on https://github.com/HelenaLC/muscat/blob/master/vignettes/vignette.Rmd and https://github.com/HelenaLC/BC2_2019-workshop_multi-scRNA-seq/blob/master/LPS
+
