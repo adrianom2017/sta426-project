@@ -338,7 +338,15 @@ Simulation_DS_analysis(sce_muscat,3,"muscat")
 Simulation_DS_analysis(sce_sim,4,"correlation_structure")
 ```
 
+```{r}
+# Concatenate all .rds files together
+library(tidyverse)
+sce_all_methods <- do.call('rbind', lapply(list.files(path = "output/muscat", full.names = TRUE), readRDS))
+```
 
+```{r}
+print(sce_all_methods)
+```
 
 # Results
 
