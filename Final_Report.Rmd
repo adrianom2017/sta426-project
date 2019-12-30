@@ -267,13 +267,10 @@ Simulation_DS_analysis<-function(sce,pos,sim_type){
   methods <- list("sum_counts_edgeR","sum_counts_limma-voom","mean_logcounts_edgeR",
              "mean_logcounts_limma-voom","mm_dream","mm_nbinom","mm_vst_DESeq")
   g <- ggplot() + geom_point()
-  print(typeof(g))
 
   num = 0
   for (method in methods){
     num = num +1
-    print(method)
-    print("Hello")
     method_pieces <- strsplit(method, "_")
     #print(method_pieces)
     method_substring <- matrix(unlist(method_pieces), ncol=3, byrow=TRUE)
@@ -309,19 +306,19 @@ Simulation_DS_analysis<-function(sce,pos,sim_type){
       
       #DS pb analysis
       ds <- DS.analysis.pd(sce,method_substring[2],method_substring[1],method_substring[3], topnumber,pos)
-      print("DS")
-      print(ds)
-      print("LEN Neur excit")
-      print(length(ds$res$table$B$Neuronal_excit$logFC)) # M : 6948, S : 9373
-       print("LEN Neur inhib")
-      print(length(ds$res$table$B$Neuronal_inhib$logFC)) # M : 4762 S : 9229
+      #print("DS")
+      #print(ds)
+      #print("LEN Neur excit")
+      #print(length(ds$res$table$B$Neuronal_excit$logFC)) # M : 6948, S : 9373
+      # print("LEN Neur inhib")
+      #print(length(ds$res$table$B$Neuronal_inhib$logFC)) # M : 4762 S : 9229
       #Visualization
       p <- DS.analysis.Visualization.pb(ds,method_substring[2],method_substring[1],method_substring[3],topnumber,num,sim_type)
     
     }
     
     print("DONE!!")
-    #break
+    break
   }
 }
 
@@ -348,6 +345,11 @@ sce_all_methods <- do.call('rbind', lapply(list.files(path = "output/muscat", fu
 print(sce_all_methods)
 ```
 
+```{r}
+length(sce_all_methods)
+print(sce_all_methods[3])
+print(upset(fromList(ds_gs), sets = levels(sce_all_methods)))
+```
 # Results
 
 From the upsets plots above we observe that the number of differentially expressed genes for Neuronal_inhib is 4, for Neuronal_excit is 36. Moreover, it is evident that Neuronal_inhib and Neuronal_excit share 208 differentially expressed genes.
