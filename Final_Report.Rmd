@@ -84,19 +84,19 @@ sce = logNormCounts(sce)
 
 ## Preprocess data
 ```{r, fig.cap=c('Plotting data','Distributions of QC metrics',"Top 50 most-expressed features","Distribution of percentages of variance explained across genes for various factors","Expression profile across cells")}
-sce= prep_steps(sce)
+#sce= prep_steps(sce)
 ```
 
 ```{r}
 # make WT reference group
-sce$group_id <- relevel(sce$group_id, ref = "WT")
+#sce$group_id <- relevel(sce$group_id, ref = "WT")
 ```
 
 ```{r}
 # reorder sample levels
-m <- match(levels(sce$sample_id), sce$sample_id)
-o <- order(sce$group_id[m])
-sce$sample_id <- factor(sce$sample_id, levels = levels(sce$sample_id)[o])
+#m <- match(levels(sce$sample_id), sce$sample_id)
+#o <- order(sce$group_id[m])
+#sce$sample_id <- factor(sce$sample_id, levels = levels(sce$sample_id)[o])
 ```
 
 ## Run simulation
@@ -149,12 +149,14 @@ idx = sapply(gene_id$sim_gene, function(x){
 #hist(table(idx))
 sce_prep2 = sce_prep[idx,]
 logFC = list("muscat_data" = meta)
+
+#Run simulation
 sce_sim = create_dataset(sce_prep2, n_comp, n_cells, kNN, kNN_subsample, n_sample, logFC, probs, verbose)
 
 #Compare metadata
-head(metadata(sce_muscat)$gene_info,10)
-head(metadata(sce_sim)$gene_info,5)
-metadata(sce_sim)$cluster_info
+#head(metadata(sce_muscat)$gene_info,10)
+#head(metadata(sce_sim)$gene_info,5)
+#metadata(sce_sim)$cluster_info
 ```
 
 ## Augment data sets
@@ -264,13 +266,13 @@ Simulation_DS_analysis<-function(sce,pos){
   methods <- list("sum_counts_edgeR","sum_counts_limma-voom","mean_logcounts_edgeR",
              "mean_logcounts_limma-voom","mm_dream","mm_nbinom","mm_vst_DESeq")
   g <- ggplot() + geom_point()
-  print(typeof(g))
+  #print(typeof(g))
 
   num = 0
   for (method in methods){
     num = num +1
     print(method)
-    print("Hello")
+    #print("Hello")
     method_pieces <- strsplit(method, "_")
     #print(method_pieces)
     method_substring <- matrix(unlist(method_pieces), ncol=3, byrow=TRUE)
