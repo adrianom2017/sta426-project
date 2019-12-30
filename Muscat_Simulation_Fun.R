@@ -104,15 +104,21 @@ DS.analysis.pd <- function(sim,assay,fun,ds_method,topnumber,gene_info_pos){
   colnames(data) <- c("Ground_Truth",method_name)
   
 
-  print(upset(data,main.bar.color = "black", mainbar.y.label = "DE/EE gene Intersections", 
-        sets.x.label = "genes per Category",query.legend = "bottom",queries =  list(list(query = Myfunc, 
-                      params = list(0), color = "orange", active = T),
-                      list(query = intersects, params = list(method_name), color = "red", active = F), 
-                      list(query = intersects,params = list("Ground_Truth"), color = "yellow", active = F),
-                      list(query = intersects,params = list(method_name, "Ground_Truth"), color = "green",active = T))))
+  #print(upset(data,main.bar.color = "black", mainbar.y.label = "DE/EE gene Intersections", 
+  #      sets.x.label = "genes per Category",query.legend = "bottom",queries =  list(list(query = Myfunc, 
+  #                    params = list(0), color = "orange", active = T),
+  #                    list(query = intersects, params = list(method_name), color = "red", active = F), 
+  #                    list(query = intersects,params = list("Ground_Truth"), color = "yellow", active = F),
+  #                    list(query = intersects,params = list(method_name, "Ground_Truth"), color = "green",active = T))))
   
   
-  
+ # print(upset(data,main.bar.color = "black", mainbar.y.label = "DE/EE gene Intersections", 
+#    sets.x.label = "genes per Category",query.legend = "bottom",
+#    queries =  list( list(query = intersects, params = list(method_name), color = "red", active = F), 
+#              list(query = intersects,params = list("Ground_Truth"), color = "yellow", active = F),
+ #           list(query = intersects,params = list(method_name, "Ground_Truth"), color = "green",active = T))))
+
+
   
   #print(upset(tbl$category),sets = levels(sim$gene))
   #print(upset(data.frame(tbl$category_method)),sets = levels(sim$gene))
@@ -203,7 +209,7 @@ Plot.TPR.vs.FDR <- function(pval,padj,truth,method_name,num){
   p$layers[[1]] <- NULL # remove vertical dashed lightgrey lines 
   # p$layers[[1]]$aes_params$size <- 0.4 # dashed lines at thresholds
   
-  print(p)
+  #print(p)
   
   #ggsave(p, device = "pdf")
   return(p)
@@ -211,16 +217,19 @@ Plot.TPR.vs.FDR <- function(pval,padj,truth,method_name,num){
 
 # Violin plots
 Violin_plots<-function (sim,res_by_k,cs_by_k){
-  print(plotExpression(sim[, cs_by_k$Neuronal_excit], 
+  v1 <- plotExpression(sim[, cs_by_k$Neuronal_excit], 
                        features = res_by_k$Neuronal_excit$gene[seq_len(8)],
                        x = "sample_id", colour_by = "group_id") + theme_classic() + 
-          theme(axis.text.x = element_text(angle = 45, hjust = 1)))
+          theme(axis.text.x = element_text(angle = 45, hjust = 1))
   
-  print(plotExpression(sim[, cs_by_k$Neuronal_inhib], 
+  v2 <- plotExpression(sim[, cs_by_k$Neuronal_inhib], 
                        features = res_by_k$Neuronal_inhib$gene[seq_len(8)],
                        x = "sample_id", colour_by = "group_id") + theme_classic() + 
-          theme(axis.text.x = element_text(angle = 45, hjust = 1)))
+          theme(axis.text.x = element_text(angle = 45, hjust = 1))
   
+  #print(v1)
+  #print(v2)
+  return(list(v1 = v1, v2 = v2))
 }
 
 # wrapper to prettify reduced dimension plots
@@ -241,7 +250,9 @@ DR.colored.by.expression<-function(sim,tbl,topnumber,cs_by_k){
   ps <- lapply(top, function(g).plot_dr(sim[, cs100], "TSNE", g) + 
                  ggtitle(g) + theme(legend.position = "none"))
   # arrange plots
-  print(plot_grid(plotlist = ps, ncol = 4, align = "vh"))
+  p <- plot_grid(plotlist = ps, ncol = 4, align = "vh")
+  #print(p)
+  return(p)
 }
 
 # Heatmaps
@@ -270,23 +281,29 @@ DS.analysis.Visualization.mm <-function(ds,ds_method,type,vst,topnumber,num,sim_
   
   ## Violin Plots
   cs_by_k <- split(colnames(sim), sim$cluster_id)
-  Violin_plots(sim,res_by_k,cs_by_k)
+  v <- Violin_plots(sim,res_by_k,cs_by_k)
+  v1 <-v$v1
+  v2 <- v$v2
   
   ### Between-cluster concordance
   ds_gs <- lapply(res_by_k, pull, "gene")
-  print(upset(fromList(ds_gs), sets = levels(sim$cluster_id)))
+  upset <- upset(fromList(ds_gs), sets = levels(sim$cluster_id))
+  #print(upset)
   
   #decideTests(tbl$)
   
   ### DR colored by expression
   if ((ds_method == "dream")){
-    print("DR colored by expression Plot")
-    DR.colored.by.expression(sim,tbl,topnumber,cs_by_k)
+    #print("DR colored by expression Plot")
+    ds_expression <- DR.colored.by.expression(sim,tbl,topnumber,cs_by_k)
+  } 
+  else{
+    ds_expression <- NULL
   }
   
   method_name = paste0(type,"-",ds_method,"-",vst)
-  print(method_name)
-  p <- Plot.TPR.vs.FDR(ds$pval,ds$padj,ds$truth,method_name,num)
+  #print(method_name)
+  TPR.vs.FDR <- Plot.TPR.vs.FDR(ds$pval,ds$padj,ds$truth,method_name,num)
   
   ### Write results to .rds
   mainDir <-  paste0(getwd(),"/")
@@ -296,7 +313,7 @@ DS.analysis.Visualization.mm <-function(ds,ds_method,type,vst,topnumber,num,sim_
   print("DS_METHOD")
   saveRDS(res, file.path(paste0(mainDir,subDir,"/",sim_type), paste0("DS_results_mm","_",ds_method,".rds")))
   
-  return(p)
+  return(list(v1 = v1, v2 = v2, upset = upset, ds_expression = ds_expression, TPR.vs.FDR = TPR.vs.FDR ))
   
 }
 
@@ -317,21 +334,27 @@ DS.analysis.Visualization.pb <-function(ds,assay,fun,ds_method,topnumber,num,sim
   
   ### Violin Plots
   cs_by_k <- split(colnames(sim), sim$cluster_id)
-  Violin_plots(sim,res_by_k,cs_by_k)
+  v <- Violin_plots(sim,res_by_k,cs_by_k)
+  v1 <- v$v1
+  v2 <- v$v2
   
   ### Between-cluster concordance
   
   ds_gs <- lapply(res_by_k, pull, "gene")
   
-  print(upset(fromList(ds_gs), sets = levels(sim$cluster_id)))
+  upset <- upset(fromList(ds_gs), sets = levels(sim$cluster_id))
+  #print(upset)
   
   ### DR colored by expression
   if (!(assay=="logcounts" && fun == "mean" && ds_method =="edgeR")){
-    DR.colored.by.expression(sim,tbl,topnumber,cs_by_k)
+    ds_expression <- DR.colored.by.expression(sim,tbl,topnumber,cs_by_k)
+  }
+  else{
+    ds_expression <- NULL
   }
   
   method_name = paste0(assay,"-",fun,"-",ds_method) 
-  p <- Plot.TPR.vs.FDR(ds$pval,ds$padj,ds$truth,method_name,num)
+  TPR.vs.FDR <- Plot.TPR.vs.FDR(ds$pval,ds$padj,ds$truth,method_name,num)
   
   ### Write results to .rds
   mainDir <-  paste0(getwd(),"/")
@@ -340,7 +363,7 @@ DS.analysis.Visualization.pb <-function(ds,assay,fun,ds_method,topnumber,num,sim
   
   saveRDS(res, file.path(paste0(mainDir,subDir,"/",sim_type), paste0("DS_results_",assay,"_",fun,"_",ds_method,".rds")))
   
-  return(p)
+  return(list(v1 = v1, v2 = v2, upset = upset, ds_expression = ds_expression, TPR.vs.FDR = TPR.vs.FDR ))
   
 }
 
