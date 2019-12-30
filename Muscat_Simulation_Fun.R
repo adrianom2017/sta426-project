@@ -13,7 +13,7 @@ DS.analysis.pd <- function(sim,assay,fun,ds_method,topnumber,gene_info_pos){
   # Pseudobulk-level multidimensional scaling (MDS) plot. Each point represents a cluster-sample instance; points are colored by cluster ID and shaped by group ID
   pb_mds <- pbMDS(pb)
   
-  # run edgeR on pseudobulks
+  # run edgeR/limma-voom on pseudobulks
   res <- pbDS(pb, method = ds_method, verbose = FALSE)
   # reformat results
   tbl <- resDS(sim, res, bind = "col")  
@@ -36,11 +36,15 @@ DS.analysis.pd <- function(sim,assay,fun,ds_method,topnumber,gene_info_pos){
   print(sim_df)
   if (gene_info_pos == 3){
     sim_map <-select(sim_df$gene_info, "gene","cluster_id","category")
+    print("metadata(sim)$gene_info$logFC")
+    print(length(metadata(sim)$gene_info$logFC)) #19122
   }
   else{
     sim_map <-select(sim_df$gene_info2, "gene","cluster_id","category")
+    print("metadata(sim)$gene_info2$logFC")
+    print(length(metadata(sim)$gene_info2$logFC)) #19122
   }
-
+  
   
   # Our simulation
   #sim_df<- metadata(sim)[4]
@@ -206,8 +210,8 @@ DR.colored.by.expression<-function(sim,tbl,topnumber,cs_by_k){
   
   cs100 <- unlist(sapply(cs_by_k, function(u) 
     sample(u, min(length(u), 100))))
-
-    top <- bind_rows(tbl) %>% 
+  
+  top <- bind_rows(tbl) %>% 
     top_n(topnumber, dplyr::desc(p_adj.loc)) %>% 
     pull("gene")
   # for ea. gene in 'top', plot t-SNE colored by its expression 
@@ -233,7 +237,7 @@ pbHeatmap_plots<- function(sim,res){
 }
 
 
-DS.analysis.Visualization.mm <-function(ds,ds_method,type,vst,topnumber,num){
+DS.analysis.Visualization.mm <-function(ds,ds_method,type,vst,topnumber,num,sim_type){
   
   sim <- ds$sim
   res <-ds$res
@@ -264,14 +268,18 @@ DS.analysis.Visualization.mm <-function(ds,ds_method,type,vst,topnumber,num){
   p <- Plot.TPR.vs.FDR(ds$pval,ds$padj,ds$truth,method_name,num)
   
   ### Write results to .rds
-  getwd()
-  saveRDS(res, file.path("output", paste("DS_results_", "mm" , "_" , ds_method, ".rds")))
+  mainDir <-  paste0(getwd(),"/")
+  subDir <- "output/"
+  ifelse(!dir.exists(file.path(mainDir, subDir,sim_type)), dir.create(file.path(mainDir, subDir,sim_type), recursive = TRUE), FALSE)
+  
+  print("DS_METHOD")
+  saveRDS(res, file.path(paste0(mainDir,subDir,"/",sim_type), paste0("DS_results_mm","_",ds_method,".rds")))
   
   return(p)
   
 }
 
-DS.analysis.Visualization.pb <-function(ds,assay,fun,ds_method,topnumber,num){
+DS.analysis.Visualization.pb <-function(ds,assay,fun,ds_method,topnumber,num,sim_type){
   
   sim <- ds$sim
   res <-ds$res
@@ -313,8 +321,11 @@ DS.analysis.Visualization.pb <-function(ds,assay,fun,ds_method,topnumber,num){
   p <- Plot.TPR.vs.FDR(ds$pval,ds$padj,ds$truth,method_name,num)
   
   ### Write results to .rds
-  getwd()
-  saveRDS(res, file.path("output", paste("DS_results_", assay , "_" , fun, "_" , ds_method, ".rds")))
+  mainDir <-  paste0(getwd(),"/")
+  subDir <- "output/"
+  ifelse(!dir.exists(file.path(mainDir, subDir,sim_type)), dir.create(file.path(mainDir, subDir,sim_type), recursive = TRUE), FALSE)
+  
+  saveRDS(res, file.path(paste0(mainDir,subDir,"/",sim_type), paste0("DS_results_",assay,"_",fun,"_",ds_method,".rds")))
   
   return(p)
   
