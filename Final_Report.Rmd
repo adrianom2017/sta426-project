@@ -31,7 +31,7 @@ A better way to choose these thresholds is implemented via the isOutlier functio
 We then calculate the distribution of percentages of the variance of the normalized log-expression values across cells that is explained by each variable/factor in the colData of our sce object, using the getVarianceExplained() function. In the density plot we observe that the percentages are generally small (0.08%,0.1%, 0.5%), meaning that that the expression profiles of most genes are not strongly associated with these factors. Finally, we compute that sum-factors, normalize data and visualize the expression values for a subset of genes (e.g the first 6 genes) across cells using the plotExpression() function. [4]
 
 
-```{r}
+```{r, warning=FALSE}
 #Load data
 suppressPackageStartupMessages({
 library(SingleCellExperiment)
@@ -253,8 +253,8 @@ DESeq_prep = DESeq2::DESeqDataSetFromMatrix(counts(sce_prep), colData(sce_prep),
 
 QCdata = list("Original" = DESeq_prep, "Muscat" = DESeq_muscat, "Sim" = DESeq_sim)
 
-countsimQCReport(ddsList = QCdata, outputFile = "countsim_report.html",
-                 outputDir = "./CountSimReport/", outputFormat = "html_document", 
+countsimQCReport(ddsList = QCdata, outputFile = "countsim_report_dream.html",
+                 outputDir = "./CountSimReport_Dream/", outputFormat = "html_document", 
                  showCode = FALSE, forceOverwrite = TRUE,
                  savePlots = TRUE, description = "This is my test report.", 
                  maxNForCorr = 25, maxNForDisp = Inf, 
