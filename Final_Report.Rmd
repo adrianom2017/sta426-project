@@ -54,16 +54,16 @@ library(Rtsne)
   })
 #library(sta426)#install_github(adrianom/sta426-project/sta426)
 
-source('./Preprocessing_fun.R', echo=TRUE)
+source('./Preprocessing_fun.R', echo=FALSE)
 
 #Load object
 sce = readRDS("week13_SCE_clustered.rds")
-
 ```
 
 ```{r, fig.cap=c('Plotting data','Distributions of QC metrics',"Top 50 most-expressed features","Distribution of percentages of variance explained across genes for various factors","Expression profile across cells")}
 
-sce= prep_steps(sce)
+#sce= prep_steps(sce)
+
 ```
 
 # Methods
@@ -99,21 +99,26 @@ We summarise this section by giving an overview of the whole procedure to genera
 
 ```{r}
 #Load simulation functions
-source('./fun.R', echo=TRUE)
-#sce = logNormCounts(sce)
+source('./fun.R', echo=FALSE)
 ```
 
 ## Run simulation
 ```{r}
 ##Prep data for simulation
-sce_prep <- prepSCE(sce,
+if(length(grep("sce_prep",list.files()))){
+  sce_prep = readRDS("sce_prep.RDS")
+}else{
+  sce_prep <- prepSCE(sce,
   cluster_id = "cluster_id",
   sample_id = "sample_id",
   group_id = "group_id",
   drop = FALSE)
-sce_prep <- prepSim(sce_prep)
+  sce_prep <- prepSim(sce_prep)
+  saveRDS(sce_prep, "sce_prep.RDS")
+}
+
 counts(sce_prep) = as.matrix(counts(sce_prep))
-logcounts(sce_prep) = as.matrix(logcounts(sce_prep))
+sce_prep = logNormCounts(sce_prep)
 
 n_cluster = length(unique(colData(sce_prep)$cluster_id))
 freq_cluster = table(colData(sce_prep)$cluster_id)
@@ -273,16 +278,16 @@ For visualization analysis, we create violin plots, which constitute expression 
 
 
 ```{r,message=FALSE}
-source('./Muscat_Simulation_Fun.R', echo=TRUE)
+source('./Muscat_Simulation_Fun.R', echo=FALSE)
 ```
 
 
 ```{r,fig.width=5}
 
 Simulation_DS_analysis<-function(sce,pos,sim_type){
-  methods <- list("sum_counts_edgeR","sum_counts_limma-voom","mean_logcounts_edgeR",
-             "mean_logcounts_limma-voom")
-  
+  #methods <- list("sum_counts_edgeR","sum_counts_limma-voom","mean_logcounts_edgeR",
+  #           "mean_logcounts_limma-voom")
+  methods <- list("sum_counts_edgeR")
   # methods <- list("sum_counts_edgeR","sum_counts_limma-voom","mean_logcounts_edgeR",
   #           "mean_logcounts_limma-voom","mm_dream","mm_nbinom","mm_vst_DESeq")
   
@@ -395,6 +400,131 @@ Simulation_DS_analysis(sce_muscat,3,"muscat")
 ## Our Simulation
 ```{r}
 Simulation_DS_analysis(sce_sim,4,"correlation_structure")
+```
+# Simulation Quality Control
+```{r}
+res_muscat = readRDS("output/muscat/DS_results_counts_sum_edgeR.rds")
+res_sim = readRDS("output/correlation_structure/DS_results_counts_sum_edgeR.rds")
+```
+
+```{r}
+#Obtain all idx for the genes in DE analysis
+idx_sim_ne = sapply(res_sim$table$B$Neuronal_excit$gene, function(x){
+  which(x == rownames(sce_sim))
+})
+
+idx_sim_ni = sapply(res_sim$table$B$Neuronal_inhib$gene, function(x){
+  which(x == rownames(sce_sim))
+})
+
+idx_mu_ne = sapply(res_muscat$table$B$Neuronal_excit$gene, function(x){
+  which(x == rownames(sce_muscat))
+})
+
+idx_mu_ni = sapply(res_muscat$table$B$Neuronal_inhib$gene, function(x){
+  which(x == rownames(sce_muscat))
+})
+
+```
+
+```{r}
+#Construct vectors of logFC for the genes in the analysis
+mm = metadata(sce_muscat)
+ms = metadata(sce_sim)
+
+lfc_mm_ne = mm$gene_info %>% filter(cluster_id == "Neuronal_excit") %>% select(logFC)
+lfc_mm_ne = lfc_mm_ne$logFC
+lfc_mm_ne[is.na(lfc_mm_ne)] = 0
+lfc_mm_ne = lfc_mm_ne[idx_mu_ne]
+
+lfc_mm_ni = mm$gene_info %>% filter(cluster_id == "Neuronal_inhib") %>% select(logFC)
+lfc_mm_ni = lfc_mm_ni$logFC
+lfc_mm_ni[is.na(lfc_mm_ni)] = 0
+lfc_mm_ni = lfc_mm_ni[idx_mu_ni]
+
+lfc_ms_ne = ms$gene_info2 %>% filter(cluster_id == "Neuronal_excit") %>% select(logFC)
+lfc_ms_ne = lfc_ms_ne$logFC
+lfc_ms_ne = lfc_ms_ne[idx_sim_ne]
+
+lfc_ms_ni = ms$gene_info2 %>% filter(cluster_id == "Neuronal_inhib") %>% select(logFC)
+lfc_ms_ni = lfc_ms_ni$logFC
+lfc_ms_ni = lfc_ms_ni[idx_sim_ni]
+
+lfc_res_mm_ne = res_muscat$table$B$Neuronal_excit$logFC
+lfc_res_mm_ni = res_muscat$table$B$Neuronal_inhib$logFC
+
+lfc_res_ms_ne = res_sim$table$B$Neuronal_excit$logFC
+lfc_res_ms_ni = res_sim$table$B$Neuronal_inhib$logFC
+```
+
+```{r}
+#plot simulated logFC (true) vs computed logFC by DE analysis
+#comment there seems to be an artefact in the muscat simulation. We see the for some negative logFC (true) the computed logFC is positive
+#In general: Negativ logFC is more noisy. Which makes sense since count numbers are lower
+par(mfrow = c(2,2))
+plot(lfc_mm_ni, lfc_res_mm_ni)
+plot(lfc_mm_ne, lfc_res_mm_ne)
+plot(lfc_ms_ni, lfc_res_ms_ni)
+plot(lfc_ms_ne, lfc_res_ms_ne)
+
+```
+
+
+#Upset plots
+```{r}
+#Construct vectors of p.adj for the genes in the analysis
+mm = metadata(sce_muscat)
+ms = metadata(sce_sim)
+
+DE_mm_ne = mm$gene_info %>% filter(cluster_id == "Neuronal_excit") %>% select(logFC)
+DE_mm_ne = DE_mm_ne$logFC
+DE_mm_ne[is.na(DE_mm_ne)] = 0
+DE_mm_ne = DE_mm_ne[idx_mu_ne]
+DE_mm_ne[DE_mm_ne != 0] = 1 #set all DE genes to 1
+
+DE_mm_ni = mm$gene_info %>% filter(cluster_id == "Neuronal_inhib") %>% select(logFC)
+DE_mm_ni = DE_mm_ni$logFC
+DE_mm_ni[is.na(DE_mm_ni)] = 0
+DE_mm_ni = DE_mm_ni[idx_mu_ni]
+DE_mm_ni[DE_mm_ni != 0] = 1 #set all DE genes to 1
+
+DE_ms_ne = ms$gene_info2 %>% filter(cluster_id == "Neuronal_excit") %>% select(logFC)
+DE_ms_ne = DE_ms_ne$logFC
+DE_ms_ne = DE_ms_ne[idx_sim_ne]
+DE_ms_ne[DE_ms_ne != 0] = 1
+
+DE_ms_ni = ms$gene_info2 %>% filter(cluster_id == "Neuronal_inhib") %>% select(logFC)
+DE_ms_ni = DE_ms_ni$logFC
+DE_ms_ni = DE_ms_ni[idx_sim_ni]
+DE_ms_ni[DE_ms_ni != 0] = 1
+
+DE_res_mm_ne = rep(0, nrow(res_muscat$table$B$Neuronal_excit))
+DE_res_mm_ne[res_muscat$table$B$Neuronal_excit$p_adj.loc <= 0.05] = 1
+DE_res_mm_ni = rep(0, nrow(res_muscat$table$B$Neuronal_inhib))
+DE_res_mm_ni[res_muscat$table$B$Neuronal_inhib$p_adj.loc <= 0.05] = 1
+
+DE_res_ms_ne = rep(0, nrow(res_sim$table$B$Neuronal_excit))
+DE_res_ms_ne[res_sim$table$B$Neuronal_excit$p_adj.loc <= 0.05] = 1
+DE_res_ms_ni = rep(0, nrow(res_sim$table$B$Neuronal_inhib))
+DE_res_ms_ni[res_sim$table$B$Neuronal_inhib$p_adj.loc <= 0.05] = 1
+
+#Upset true vs predicted
+upset_data_mm_ne = data.frame(True = DE_mm_ne, Predicted = DE_res_mm_ne)
+upset_data_mm_ni = data.frame(True = DE_mm_ni, Predicted = DE_res_mm_ni)
+upset_data_ms_ne = data.frame(True = DE_ms_ne, Predicted = DE_res_ms_ne)
+upset_data_ms_ni = data.frame(True = DE_ms_ni, Predicted = DE_res_ms_ni)
+```
+
+```{r}
+#True vs predicted
+g1 = upset(upset_data_mm_ne, empty.intersections = TRUE)
+g2 = upset(upset_data_mm_ni, empty.intersections = TRUE)
+g3 = upset(upset_data_ms_ne, empty.intersections = TRUE)
+g4 = upset(upset_data_ms_ni, empty.intersections = TRUE)
+g1
+g2
+g3
+g4
 ```
 
 ```{r}
