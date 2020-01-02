@@ -1,7 +1,7 @@
 
 #data, n_treated, n_untreated, samples_treated, samples_untreated, n_comp / or auto, logFC magnitude + portion / list
 
-create_dataset = function(sce, n_comp, n_cells, kNN, kNN_subsample, n_samples, logFC, probs, verbose){
+create_dataset = function(sce, n_comp, n_cells, kNN, kNN_subsample, n_samples, logFC, probs, library_size_muscat, verbose){
 
   samples = unique(colData(sce)$sample_id)
 
@@ -50,13 +50,10 @@ create_dataset = function(sce, n_comp, n_cells, kNN, kNN_subsample, n_samples, l
   }
 
   colData(sce_sim) = cbind(colData(sce_sim),colD)
-
+  colData(sce_sim) = cbind(colData(sce_sim), data.frame(library.size.muscat = library_size_muscat))
+  
   #Determine group of cell (either de or ee) and library size
   group_id = data.frame(group_id = sample(c("B", "A"), replace = TRUE, size = sum(n_cells), prob = probs[[3]]))
-  #group_id = c()
-  #group_id[category == "ee"] = "A"
-  #group_id[category == "de"] = "B"
-  #group_id = factor(group_id)
   colData(sce_sim) = cbind(colData(sce_sim), group_id)
 
   #Correct sample_id to incorporate group tag
@@ -176,9 +173,9 @@ nb_counts = function(sce_sim, lFC){
 
   #Adjust mu to library.size
   mu_adj = matrix(-1, nrow = nrow(sce_sim),ncol = ncol(sce_sim))
-  lib.size = colData(sce_sim)$library.size
+  lib.size = colData(sce_sim)$library.size.muscat
   for(i in 1:ncol(mu)){
-    mu_adj[,i]=colData(sce_sim)$library.size[i]*mu[,i]/sum(mu[,i])
+    mu_adj[,i]=lib.size[i]*mu[,i]/sum(mu[,i])
   }
 
   counts =  rnbinom(n=nrow(sce_sim)*ncol(sce_sim), size=1/ds, mu=c(mu_adj))

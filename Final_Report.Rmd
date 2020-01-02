@@ -115,10 +115,9 @@ if(length(grep("sce_prep",list.files()))){
   drop = FALSE)
   sce_prep <- prepSim(sce_prep)
   saveRDS(sce_prep, "sce_prep.RDS")
+  counts(sce_prep) = as.matrix(counts(sce_prep))
+  sce_prep = logNormCounts(sce_prep)
 }
-
-counts(sce_prep) = as.matrix(counts(sce_prep))
-sce_prep = logNormCounts(sce_prep)
 
 n_cluster = length(unique(colData(sce_prep)$cluster_id))
 freq_cluster = table(colData(sce_prep)$cluster_id)
@@ -158,9 +157,10 @@ idx = sapply(gene_id$sim_gene, function(x){
 #hist(table(idx))
 sce_prep2 = sce_prep[idx,]
 logFC = list("muscat_data" = meta)
+library_size_muscat = colSums(counts(sce_muscat))
 
 #Run simulation
-sce_sim = create_dataset(sce_prep2, n_comp, n_cells, kNN, kNN_subsample, n_sample, logFC, probs, verbose)
+sce_sim = create_dataset(sce_prep2, n_comp, n_cells, kNN, kNN_subsample, n_sample, logFC, probs, library_size_muscat,verbose)
 
 #Compare metadata
 #head(metadata(sce_muscat)$gene_info,10)
@@ -253,8 +253,8 @@ DESeq_prep = DESeq2::DESeqDataSetFromMatrix(counts(sce_prep), colData(sce_prep),
 
 QCdata = list("Original" = DESeq_prep, "Muscat" = DESeq_muscat, "Sim" = DESeq_sim)
 
-countsimQCReport(ddsList = QCdata, outputFile = "countsim_report_dream.html",
-                 outputDir = "./CountSimReport_Dream/", outputFormat = "html_document", 
+countsimQCReport(ddsList = QCdata, outputFile = "countsim_report_muscat_libsize.html",
+                 outputDir = "./CountSimReport_muscatlibsize/", outputFormat = "html_document", 
                  showCode = FALSE, forceOverwrite = TRUE,
                  savePlots = TRUE, description = "This is my test report.", 
                  maxNForCorr = 25, maxNForDisp = Inf, 
