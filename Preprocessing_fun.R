@@ -41,16 +41,6 @@ prep_steps <- function(sce){
   sce <- sce[rowSums(counts(sce) > 1) >= 10, ]
   # Variable-level QC metrics
   counts <- assay(sce, "counts")
-  libsizes <- colSums(counts)
-  size.factors <- libsizes/mean(libsizes)
-  logcounts(sce) <- log2(t(t(counts)/size.factors) + 1)
-  vars <- getVarianceExplained(sce, 
-                               variables=c("sample_id", "group_id", "cluster_id","sum","detected","percent_top_50","subsets_Mt_percent"))
-  print(plotVar(vars))
-  # compute sum-factors & normalize
-  sce <- computeLibraryFactors(sce)
-  sce <- logNormCounts(sce)
-  print(plotExpressionProfile(sce))
   
   return(sce)
 }
