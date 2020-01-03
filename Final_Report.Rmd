@@ -28,7 +28,7 @@ Firstly, we filter the doublet cells, produced directly from counts using overcl
 
 A better way to choose these thresholds is implemented via the isOutlier function , where we exclude cells whose feature counts, number of detected features, and percentage of mitochondrial genes go beyond 2 Median Absolute Deviations (MADs) of the median and the percentage of mitochondrial genes overcomes 8\%. In addition, we plot the top 50  most-expressed features and subsequently remove the lowly expressed genes. Indeed, in the plot the rows correspond to genes and bars describe the expression of genes in single cells. Genes are sorted based on the median expression of each gene, which is indicated by circles.
 
-We then calculate the distribution of percentages of the variance of the normalized log-expression values across cells that is explained by each variable/factor in the colData of our sce object, using the getVarianceExplained() function. In the density plot we observe that the percentages are generally small (0.08%,0.1%, 0.5%), meaning that that the expression profiles of most genes are not strongly associated with these factors. Finally, we compute that sum-factors, normalize data and visualize the expression values for a subset of genes (e.g the first 6 genes) across cells using the plotExpression() function. [4]
+We then calculate the distribution of percentages of the variance of the normalized log-expression values across cells that is explained by each variable/factor in the colData of our sce object, using the getVarianceExplained() function. In the density plot we observe that the percentages are generally small (0.08%,0.1%, 0.5%), meaning that that the expression profiles of most genes are not strongly associated with these factors. Finally, we visualize the expression values for a subset of genes (e.g the first 6 genes) across cells using the plotExpression() function. [4]
 
 
 ```{r, warning=FALSE}
@@ -52,17 +52,17 @@ library(UpSetR)
 library(uwot)
 library(Rtsne)  
   })
-#library(sta426)#install_github(adrianom/sta426-project/sta426)
 
 source('./Preprocessing_fun.R', echo=FALSE)
+set.seed(123)
 
 #Load object
 sce = readRDS("week13_SCE_clustered.rds")
 ```
 
-```{r, fig.cap=c('Plotting data','Distributions of QC metrics',"Top 50 most-expressed features","Distribution of percentages of variance explained across genes for various factors","Expression profile across cells")}
+```{r, fig.cap=c('Plotting data','Distributions of QC metrics',"Top 50 most-expressed features")}
 
-#sce= prep_steps(sce)
+sce= prep_steps(sce)
 
 ```
 
@@ -270,12 +270,6 @@ The goal is to monitor population-specific state modifications across conditions
 
 Firstly, we aggregate measurements for each sample in each cluster to pseudobulk and create a MDS plot in pseuobulk-level to study the properties of samples. After reformatting the results, we filter them to keep hits with FDR < 5\% and visualize the top hits with the lowest adj. p-value in each cluster in the case of pseudobulk methods. On the other hand, in cell-level measurements, we use a mixed model for each gene, without aggragation beforehand. 
 
-We simulate 7 methods in total, including sum counts in edgeR, sum counts in limma-voom, mean logcounts in edgeR, mean logcounts in limma-voom, mm dream, mm nbinom and mm vst DESeq, where in each case DE genes are retrieved when p-value<0.05. For each method we calculate the ground truth, which is included in the category column of the metadata of our sce object. [5]
-
-### Visualization tools
-
-For visualization analysis, we create violin plots, which constitute expression profiles for the top-8 DS genes with the lowest adj. p-value in Neuronal_excit and Neuronal_inhib clusters using the `plotExpression` function. We also use t-SNE representations colored by the expression of the top-8 DS genes, sampling at most 100 cells from each cluster. Moreover, we produce UpSet-plots for each method that visualizes the number of DE genes intersecting across clusters or the ones that are unique, as well as the number of DE and EE genes that are shared between different methods and the ground truth. In the end, we calculate the true positive rate (TPR) vs false discovery rate (FDR) for each method. [5]
-
 
 ```{r,message=FALSE}
 source('./Muscat_Simulation_Fun.R', echo=FALSE)
@@ -284,26 +278,19 @@ source('./Muscat_Simulation_Fun.R', echo=FALSE)
 
 ```{r,fig.width=5}
 
-Simulation_DS_analysis<-function(sce,pos,sim_type){
-  #methods <- list("sum_counts_edgeR","sum_counts_limma-voom","mean_logcounts_edgeR",
-  #           "mean_logcounts_limma-voom")
-  methods <- list("sum_counts_edgeR")
-  # methods <- list("sum_counts_edgeR","sum_counts_limma-voom","mean_logcounts_edgeR",
-  #           "mean_logcounts_limma-voom","mm_dream","mm_nbinom","mm_vst_DESeq")
+Simulation_DS_analysis<-function(sce,pos,sim_type,methods){
   
-  #violin_1_plot  = list()
-  #violin_2_plot  = list()
-  #upset_plot_cluster = list()
-  #ds_expression_plot = list()
-  #TPR.vs.FDR_plot = list()
+  violin_1_plot  = list()
+  violin_2_plot  = list()
+  upset_plot_cluster = list()
+  ds_expression_plot = list()
+  TPR.vs.FDR_plot = list()
 
   num = 0
   for (method in methods){
     num = num +1
     method_pieces <- strsplit(method, "_")
-    #print(method_pieces)
     method_substring <- matrix(unlist(method_pieces), ncol=3, byrow=TRUE)
-    #print(method_substring)
     
     if (pos!=3 && pos!=4){
       print("Invalid gene_info argument position")
@@ -321,7 +308,6 @@ Simulation_DS_analysis<-function(sce,pos,sim_type){
         topnumber = 8
         vst = method_substring[3]
       }
-      print(method)
       ds <- DS.analysis.mm(sce,method_substring[2],method_substring[1],vst,topnumber,pos)
       
       #Visualization
@@ -335,77 +321,49 @@ Simulation_DS_analysis<-function(sce,pos,sim_type){
       
       #DS pb analysis
       ds <- DS.analysis.pd(sce,method_substring[2],method_substring[1],method_substring[3], topnumber,pos)
-      #print("DS")
-      #print(ds)
-      #print("LEN Neur excit")
-      #print(length(ds$res$table$B$Neuronal_excit$logFC)) # M : 6948, S : 9373
-      # print("LEN Neur inhib")
-      #print(length(ds$res$table$B$Neuronal_inhib$logFC)) # M : 4762 S : 9229
       #Visualization
       plots <- DS.analysis.Visualization.pb(ds,method_substring[2],method_substring[1],method_substring[3],topnumber,num,sim_type)
     
     }
-    
-  #  if (!(is_null(plots$v1))){
-  #    violin_1_plot[[num]] <- plots$v1
-  #  }
-  #  if (!is_null(plots$v2)){
-  #     violin_2_plot[[num]] <- plots$v2
-  #  }
-    
-  #  if (!is_null(plots$upset)){
-  #    upset_plot_cluster[[num]] <-  plots$upset
-  #  }
-  #  if (!is_null(plots$ds_expression)){
-  #    ds_expression_plot[[num]] <- plots$ds_expression
-  #  }
-  #  if (!is_null(plots$TPR.vs.FDR)){
-  #    TPR.vs.FDR_plot[[num]] <- plots$TPR.vs.FDR
-  # }
-  
-
-
-    print("DONE!!")
     for(element in plots){
       if (!is_null(element)){
-        print(element) 
+        suppressWarnings(print(element)) 
       }
-    
     }
-    #break
-  
   }
- 
-  # violin_1 = plot_grid(plotlist=violin_1_plot,labels = c('A', 'B','C','D','E','F','G'), label_size = 12)
-  #violin_2 =  plot_grid(plotlist=violin_2_plot,labels =  c('A', 'B','C','D','E','F','G'), label_size = 12)
-  #upset = plot_grid(plotlist=upset_plot_cluster,labels =  c('A', 'B','C','D','E','F','G'), label_size = 12)
-  #ds_expression = plot_grid(plotlist=ds_expression_plot,labels =  c('A', 'B','C','D','E','F','G'), label_size = 12)
-  #TPR.vs.FDR = plot_grid(plotlist=TPR.vs.FDR_plot,labels =  c('A', 'B','C','D','E','F','G'), label_size = 12)
   
-  #save_plot("violin_1.png", violin_1, ncol = 1)
-  #save_plot("violin_2.png", violin_2, ncol = 1)
-  #save_plot("upset.png", upset, ncol = 1)
-  #save_plot("ds_expression.png", ds_expression, ncol = 1)
-  #save_plot("TPR.vs.FDR.png", TPR.vs.FDR, ncol = 1)
 }
-
-
 ```
 
 ##  Muscat Simulation
 ```{r}
-Simulation_DS_analysis(sce_muscat,3,"muscat")
+suppressWarnings({
+methods <- list("sum_counts_edgeR","sum_counts_limma-voom","mean_logcounts_edgeR",
+         "mean_logcounts_limma-voom","mm_dream","mm_nbinom","mm_vst_DESeq")
+
+Simulation_DS_analysis(sce_muscat,3,"muscat",methods)
+
+})
 ```
 
-## Our Simulation
+## Correlation Structure Simulation
 ```{r}
-Simulation_DS_analysis(sce_sim,4,"correlation_structure")
+suppressWarnings({
+methods <- list("sum_counts_edgeR","sum_counts_limma-voom","mean_logcounts_edgeR",
+         "mean_logcounts_limma-voom")
+
+Simulation_DS_analysis(sce_sim,4,"correlation_structure",methods)
+
+})
 ```
-# Simulation Quality Control
+
+
+## Simulation Quality Control
 ```{r}
 res_muscat = readRDS("output/muscat/DS_results_counts_sum_edgeR.rds")
 res_sim = readRDS("output/correlation_structure/DS_results_counts_sum_edgeR.rds")
 ```
+
 
 ```{r}
 #Obtain all idx for the genes in DE analysis
@@ -457,20 +415,7 @@ lfc_res_ms_ne = res_sim$table$B$Neuronal_excit$logFC
 lfc_res_ms_ni = res_sim$table$B$Neuronal_inhib$logFC
 ```
 
-```{r}
-#plot simulated logFC (true) vs computed logFC by DE analysis
-#comment there seems to be an artefact in the muscat simulation. We see the for some negative logFC (true) the computed logFC is positive
-#In general: Negativ logFC is more noisy. Which makes sense since count numbers are lower
-par(mfrow = c(2,2))
-plot(lfc_mm_ni, lfc_res_mm_ni)
-plot(lfc_mm_ne, lfc_res_mm_ne)
-plot(lfc_ms_ni, lfc_res_ms_ni)
-plot(lfc_ms_ne, lfc_res_ms_ne)
-
-```
-
-
-#Upset plots
+## Upset plots
 ```{r}
 #Construct vectors of p.adj for the genes in the analysis
 mm = metadata(sce_muscat)
@@ -515,52 +460,109 @@ upset_data_ms_ne = data.frame(True = DE_ms_ne, Predicted = DE_res_ms_ne)
 upset_data_ms_ni = data.frame(True = DE_ms_ni, Predicted = DE_res_ms_ni)
 ```
 
+## For Further use
+```{r}
+# Concatenate all .rds files together
+library(tidyverse)
+sce_muscat_all_methods <- do.call('rbind', lapply(list.files(path = "output/muscat", full.names = TRUE), readRDS))
+```
+
+```{r}
+print(sce_muscat_all_methods)
+```
+
+```{r}
+sce_sim_all_methods <- do.call('rbind', lapply(list.files(path = "output/muscat", full.names = TRUE), readRDS))
+```
+
+```{r}
+print(sce_sim_all_methods)
+```
+
+
+# Results
+
+We simulate 7 methods in total, including sum counts in edgeR, sum counts in limma-voom, mean logcounts in edgeR, mean logcounts in limma-voom, mm dream, mm nbinom and mm vst DESeq, where in each case DE genes are retrieved when adj. p-value <0.05. For each method we calculate the ground truth, which is included in the category column of the metadata of our sce object. [5]
+
+## Visualization tools
+
+For visualization analysis, we create violin plots, which constitute expression profiles for the top-8 DS genes with the lowest adj. p-value in Neuronal_excit and Neuronal_inhib clusters using the `plotExpression` function. We also use t-SNE representations colored by the expression of the top-8 DS genes, sampling at most 100 cells from each cluster. Moreover, we calculate the true positive rate (TPR) vs false discovery rate (FDR) for each method. In the end, we produce UpSet-plots for each method that visualizes the number of DE genes intersecting across clusters or the ones that are unique, as well as the number of DE genes that are shared between the predictions and the ground truth. [5]
+
+## Simulation of Muscat
+
+Muscat simulation produces five plots for each of the seven studied methods. 
+
+For methods sum counts edgeR, sum counts limma-voom , mean logcounts edgeR and mean logcounts limma-voom in the Neuronal_excit cluster, we observe that the distribution of the logcounts for genes 10 and 1001 detects more outliers for the LC025_WTA sample, while in gene 1007 for samples LC025_WTA and LC025_WTB, the distribution involves a larger number of logcounts (Figures 1, 6, 11, 15). In the Neuronal_inhib cluster, we observe highter expression of logcounts for most genes compared to the previous case and gene 1008 involves diversity in logcounts in all samples (Figures 2, 7, 12, 16).
+  
+In methods mm-dream and mm-nbinom, in cluster Neuronal_excit, genes 1008, 1017 and 1023 are highly expresssed across all samples. On the other hand, in Neuronal_inhib cluster, we observe the presence of outliers in genes 1037, 1039 and 105 for samples LC016_WTB and LC025_WTB together with highly expressed logcounts. Method mm-vst-DESeq contains the largerst amount of logcounts across all samples and genes compared to all the aforementioned cases.
+  
+Methods sum counts edgeR, sum counts limma-voom , mean logcounts edgeR and mean logcounts limma-voom share the same upset plots with 44 differentially expressed genes for Neuronal_inhib cluster, 2230 for Neuronal_excit cluster and 4718 equally shared between the two clusters (Figures 3, 8, 13, 17). Methods mm-dream and mm-nbinom produce 1361 differentially expressed genes in Neuronal_excit cluster and both clusters share 1133 (Figures 22, 27). Method mm-vst-DESeq reaches different results compared to the other methods (Figure 31).
+  
+In the t-SNE representation figures all top genes share approximately the same cell-populations. However, cell-populations are not well-separated from one another (Figures 4, 9, 18, 23).
+   
+Moreover, we plot the observed overall true positive rate (TPR) and false discovery rate (FDR) values at 1\%, 5\%, and 10\% FDR cutoffs. Dashed lines represent the desired FDRs. Counts sum in edgeR method presents the best performance as it reaches the hightest TPR and lowest FDR followed by mm-dream. Next are the counts sum and logcounts in limma-voom,mm-vst-DESeq and logcounts mean in edgeR. The mm-nbinom underperforms as it contains an abnormally large FDR and nearly zero TPR (Figures 5, 10, 14, 19, 24, 28, 32).
+
+
+## Simulation of Correlation Structure 
+
+In the correlation structure simulation, we evaluate only sum counts edgeR, sum counts limma-voom , mean logcounts edgeR and mean logcounts limma-voom methods. 
+
+In the Neuronal_excit cluster, we observe that the distribution of the logcounts for most genes detects outliers across samples, while in gene 10 sample LC016_WTA consists of the larger number of logcounts (Figures 1, 6, 11, 15). In the Neuronal_inhib cluster, we observe again the presence of outliers (Figure 2, 7, 12, 16).
+  
+All methods contain 43 differentially expressed genes for Neuronal_inhib cluster, 82 for Neuronal_excit cluster and 9424 equally shared between the two clusters (Figures 3, 8, 13, 17). Generally, compared to muscat simulation, the correlation structure reaches much smaller number of DE genes in the Neuronal_excit cluster as well as the two clusters share approximately more than the double number of genes among them( 9424 vs 4718 DE genes). 
+  
+In the t-SNE representation figures clusters are pretty dense and compact rendering the cell-populations very well-separated from one another compared to the muscat simulation (Figures 4, 9, 18).
+  
+Counts sum in edgeR method presents the best performance as it reaches the hightest TPR and lowest FDR followed counts sum in limma-voom and logcounts mean in edgeR. The logcounts mean in limma-voom underperforms as it contains an abnormally large FDR and TPR (Figures 5, 10, 14, 19). As a result, counts sum in edgeR and counts sum in limma voom methods overperform in the correlation structure simulation compared to muscat simulation as they attain larger TPR(70%\ vs 50%\). Also, logcounts mean in limma-voom method has ameliorated performance in muscat compared to correlation structure.
+  
+## True LogFC vs computed LogFC
+
+In addition, we plot the simulated logFC (true) vs the computed logFC by the DE analysis. It is obvious that there seems to be an artefact in the muscat simulation. For some negative logFC (true) the computed logFC is positive. Generally, the Negative logFC is more noisy, which makes sense since the count numbers are lower.
+```{r}
+par(mfrow = c(2,2))
+plot(lfc_mm_ni, lfc_res_mm_ni)
+plot(lfc_mm_ne, lfc_res_mm_ne)
+plot(lfc_ms_ni, lfc_res_ms_ni)
+plot(lfc_ms_ne, lfc_res_ms_ne)
+
+```
+
+
+## TODO : True vs Predicted genes for each cluster
+What is more, we calculate per cluster the true DE genes vs the predicted DE genes for both simulations. For cluster Neuronal_excit, ...
+
 ```{r}
 #True vs predicted
 g1 = upset(upset_data_mm_ne, empty.intersections = TRUE)
 g2 = upset(upset_data_mm_ni, empty.intersections = TRUE)
 g3 = upset(upset_data_ms_ne, empty.intersections = TRUE)
 g4 = upset(upset_data_ms_ni, empty.intersections = TRUE)
-g1
-g2
-g3
-g4
+print(g1)
+print(g2)
+print(g3)
+print(g4)
 ```
 
-```{r}
-# Concatenate all .rds files together
-library(tidyverse)
-sce_all_methods <- do.call('rbind', lapply(list.files(path = "output/muscat", full.names = TRUE), readRDS))
-```
 
-```{r}
-print(sce_all_methods)
-```
-
-```{r}
-length(sce_all_methods)
-print(sce_all_methods[3])
-print(upset(fromList(ds_gs), sets = levels(sce_all_methods)))
-```
-# Results
-
-From the upsets plots above we observe that the number of differentially expressed genes for Neuronal_inhib is 4, for Neuronal_excit is 36. Moreover, it is evident that Neuronal_inhib and Neuronal_excit share 208 differentially expressed genes.
-
-
-From the upsets plots above we observe that for methods "dream" and "nbinom" the number of differentially expressed genes for Neuronal_inhib is 0, for Neuronal_excit is 43. Moreover, it is evident that Neuronal_inhib and Neuronal_excit share 68 differentially expressed genes.
-On ther other hand, for method "vst" with "DESeq2",  the number of differentially expressed genes for Neuronal_inhib and Neuronal_excit is 0 and both share 500 DE genes.
-
-FDR cutoffs of 1%, 5%, and 10%; dashed lines indicate desired FDRs
 
 # Conclusions
 
+In conclusion, we devised a flexible gene correlation structure simulation framework on the differential expression, which justifies the covariance of genes as a result of the dependency of real biological variation across genes. In particular, the correlation structure ...[TODO add summmary of our simulation].  
+
+For exploring the outcome of the gene-gene correlation on the differential expression (DE) analysis, we compared the gene correlation structure simulation with the muscat simulation framework. Particularly, we considered four different methods for the comparison, including sum counts in edgeR, sum counts in limma-voom, mean logcounts in edgeR as well as mean logcounts in limma-voom. We observed that all methods in the correlation structure framework, except the mean logcounts in limma-voom, presented burgeoning performance with 70%\ of TPR and extremely small FDR. Moreover, in the t-SNE representation the clusters are dense and compact, resulting in separating the cell populations to a great extent. 
+
+[TODO] Add Results from upset plots with predicted vs true.
+
+
 # Discussion
 
-# Refereneces
+[TODO] maybe suggest something that could be extended in our simulation e.g library sizes
 
-[1] https://www.biorxiv.org/content/10.1101/713412v1.full
-[2] https://bioconductor.org/packages/release/bioc/html/scDblFinder.html
-[3] http://bioconductor.org/packages/release/bioc/html/scater.html 
-[4] https://bioconductor.org/packages/devel/bioc/vignettes/scater/inst/doc/overview.html#3_quality_control
-[5] Our analysis is based on https://github.com/HelenaLC/muscat/blob/master/vignettes/vignette.Rmd and https://github.com/HelenaLC/BC2_2019-workshop_multi-scRNA-seq/blob/master/LPS
+# References
+
+[1] [](https://www.biorxiv.org/content/10.1101/713412v1.full)
+[2] [](https://bioconductor.org/packages/release/bioc/html/scDblFinder.html)
+[3] [](http://bioconductor.org/packages/release/bioc/html/scater.html) 
+[4] [](https://bioconductor.org/packages/devel/bioc/vignettes/scater/inst/doc/overview.html#3_quality_control)
+[5] Our analysis is based on [](https://github.com/HelenaLC/muscat/blob/master/vignettes/vignette.Rmd) and [](https://github.com/HelenaLC/BC2_2019-workshop_multi-scRNA-seq/blob/master/LPS)
 
