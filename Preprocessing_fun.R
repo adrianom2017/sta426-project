@@ -27,17 +27,17 @@ prep_steps <- function(sce){
   sce <- sce[rowSums(counts(sce) > 0) > 0, ]
   # `scater` QC & filtering
   per.cell <- perCellQCMetrics(sce, subsets=list(Mito=grep("mt-", rownames(sce))))
-  print(plotData(sce))
+  #print(plotData(sce))
   colData(sce) <- cbind(colData(sce), per.cell)
   #remove putative low-quality cells that have very few or many detected genes.
-  print(plotdist(sce))
+  #print(plotdist(sce))
   total.drop <- isOutlier(sce$total, nmads = 2, type = "both", log = TRUE, batch = sce$sample_id)
   detected.drop <- isOutlier(sce$detected, nmads=2, type="lower", log=TRUE)
   subsets_Mt_percent.drop <- isOutlier(sce$subsets_Mt_percent, nmads = 2, type = "higher") &   sce$subsets_Mt_percent > 0.08
   sce <- sce[, !(total.drop | detected.drop |   subsets_Mt_percent.drop)]
   data.frame(ByDetectedGenes=sum(detected.drop),ByTotal=sum(total.drop),Bysubsets_Mt_percent=sum(subsets_Mt_percent.drop),Remaining=ncol(sce))
   # Remove low-abundance/lowly expressed genes
-  print(plothighexpression(sce))
+  #print(plothighexpression(sce))
   sce <- sce[rowSums(counts(sce) > 1) >= 10, ]
   # Variable-level QC metrics
   counts <- assay(sce, "counts")

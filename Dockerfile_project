@@ -24,6 +24,8 @@ ADD Final_Report.Rmd .
 #Prepare output
 WORKDIR ../
 RUN mkdir -p /output
+RUN mkdir -p /output/CountSimReport
+
 
 #Run script
 #Rscript -e 'rmarkdown::render("code/Final_Report.Rmd")'
