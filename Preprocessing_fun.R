@@ -1,7 +1,8 @@
 set.seed(146)
 
 plotData<-function(sce){
-  plotColData(sce, x = "sum", y="detected",colour_by="cluster_id")
+  p <- plotColData(sce, x = "sum", y="detected",colour_by="cluster_id")
+  save_plot("plotting_data.png",p)
 }
 plotdist<-function(sce){
   par(mfrow=c(2,2), mar=c(5.1, 4.1, 0.1, 0.1))
@@ -9,7 +10,8 @@ plotdist<-function(sce){
        ylab="Number of cells", breaks=20, main="", col="blue")
 }
 plothighexpression<-function(sce){
-  plotHighestExprs(sce, exprs_values = "counts")
+  p <- plotHighestExprs(sce, exprs_values = "counts")
+  save_plot("plot_high_expression.png",p)
 }
 plotVar<-function(vars){
   plotExplanatoryVariables(vars)
@@ -27,7 +29,7 @@ prep_steps <- function(sce){
   sce <- sce[rowSums(counts(sce) > 0) > 0, ]
   # `scater` QC & filtering
   per.cell <- perCellQCMetrics(sce, subsets=list(Mito=grep("mt-", rownames(sce))))
-  #print(plotData(sce))
+  print(plotData(sce))
   colData(sce) <- cbind(colData(sce), per.cell)
   #remove putative low-quality cells that have very few or many detected genes.
   #print(plotdist(sce))
@@ -37,7 +39,7 @@ prep_steps <- function(sce){
   sce <- sce[, !(total.drop | detected.drop |   subsets_Mt_percent.drop)]
   data.frame(ByDetectedGenes=sum(detected.drop),ByTotal=sum(total.drop),Bysubsets_Mt_percent=sum(subsets_Mt_percent.drop),Remaining=ncol(sce))
   # Remove low-abundance/lowly expressed genes
-  #print(plothighexpression(sce))
+  print(plothighexpression(sce))
   sce <- sce[rowSums(counts(sce) > 1) >= 10, ]
   # Variable-level QC metrics
   counts <- assay(sce, "counts")
