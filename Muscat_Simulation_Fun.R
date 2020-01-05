@@ -124,7 +124,9 @@ Plot.TPR.vs.FDR <- function(pval,padj,truth,method_name,num){
     prepare_data_for_plot(cobraperf), 
     linewidth = 0.6, pointsize = 1) +
     guides(color = guide_legend(override.aes = list(size = 1.2, linetype = 0))) +
-    scale_color_manual(values = color[num]) 
+    scale_color_manual(values = color[num])+
+    scale_y_continuous(breaks = seq(0, 1, 0.2), expand = c(0.05, 0)) +
+    scale_x_sqrt(breaks = c(0.01, 0.05, 0.1, seq(0.2, 1, 0.2)), expand = c(0.05, 0))
   
   # remove vertical dashed lightgrey lines 
   p$layers[[1]] <- NULL 
@@ -241,7 +243,14 @@ DS.analysis.Visualization.pb <-function(ds,assay,fun,ds_method,topnumber,num,sim
   
   # Between-cluster concordance
   ds_gs <- lapply(res_by_k, pull, "gene")
-  upset <- upset(fromList(ds_gs), sets = levels(sim$cluster_id))
+ # upset <- upset(fromList(ds_gs), sets = levels(sim$cluster_id))
+  upset <- upset(fromList(ds_gs), empty.intersections = "on", 
+                intersections = list(list("Neuronal_excit", "Neuronal_inhib"),
+                                     list("Neuronal_excit"), list("Neuronal_inhib")))
+  
+  
+                
+
   
   # DR colored by expression
   if (!(assay=="logcounts" && fun == "mean" && ds_method =="edgeR")){
