@@ -15,15 +15,14 @@ RUN R -f /tmp/install.R
 
 #Add data folder
 WORKDIR ../home/rstudio/data
-ADD ../week13_SCE_clustered.rds .
+ADD week13_SCE_clustered.rds .
 
 #Add script
 WORKDIR ../code
-ADD ../Final_Report.Rmd .
+ADD Final_Report.Rmd .
 
 #Prepare output
 WORKDIR ../output
-
 
 #Run script
 WORKDIR ..

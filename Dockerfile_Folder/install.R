@@ -18,7 +18,6 @@ pkgs <- c("SingleCellExperiment",
           "edgeR",
           "irlba",
           "countsimQC",
-          "devtools",
           "tidyverse",
           "TMB",
           "cowplot",
@@ -30,6 +29,5 @@ pkgs <- c("SingleCellExperiment",
           )
 
 BiocManager::install(pkgs, update=FALSE, ask=FALSE, quiet=TRUE)
-
-#devtools::install_github("adrianom2017/sta426-project/sta426")
-#devtools::install_github("HelenaLC/muscat", ref="dream2", quiet = TRUE)
+remotes::install_github("adrianom2017/sta426-project/sta426")
+#remotes::install_github("HelenaLC/muscat", ref="dream2", quiet = TRUE)
