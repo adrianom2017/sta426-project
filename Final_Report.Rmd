@@ -1,7 +1,7 @@
 ---
 title: "Final_Report"
 author: "Adriano Martinelli, Chrysa Papadopoulou, Iliana Papadopoulou" 
-date: "23/12/2019"
+date: "10/01/2020"
 output: html_document
 ---
 
@@ -352,7 +352,7 @@ methods <- list("sum_counts_edgeR","sum_counts_limma-voom","mean_logcounts_edgeR
          "mean_logcounts_limma-voom")
 ```
 
-```{r muscatDS, echo=TRUE, message=FALSE, warning=FALSE,include=FALSE}
+```{r muscatDS,echo=TRUE, message=FALSE, warning=FALSE,include=FALSE}
 ###  Muscat Simulation
 Simulation_DS_analysis(sce_muscat,3,"muscat",methods)
 ```
@@ -509,6 +509,7 @@ muscat_order_i = unlist(sapply(sim_$gene[sim_order], function(x){
 The comparison of our simulation with the original data set and the muscat simulation shows that the library sizes of both simulation is much larger than in the original data set. This is due to the fact that muscat generates a larger library size that is larger than the original data set and we use the muscat library sizes in a further step in our simulation. Furthermore the ``sce_sim`` simulation shows a larger variability in the library sizes than the muscat simulation. We also observe a larger fraction of zeros per feature for our simulation but less variability in the feature-feature correlation. Since the simulatons consit of many parts that are inherently random we argue that these variations are in the scope of the randomness and we do not observe a systematic deviation from the original data set neither for the muscat simulation nor our simulation framework. Overall this qualitative assessment of the simulation indicates that our simulation framework is feasible. 
 
 ![](CountSimReport/countsim_report_files/figure-html/dispersionDESeq2-1.png)
+
 *Comparison of original dataset, muscat simulation (sce_muscat) and our simuation (sce_sim): Dispersion Plot*
 
 ![](CountSimReport/countsim_report_files/figure-html/effLibsizeBox-1.png)
@@ -572,7 +573,7 @@ In each case DE genes are retrieved when adj. p-value <0.05. For each method we 
 
 ### DE genes per cluster
 
-All methods share the same upset plots. We observe that Neuronal_inhibit cluster detects fewer DE genes compared to Neuronal_excit cluster. However, the numbrer of DE genes that correlation structure finds in each cluster individuallly is extremelly lower compared to muscat.
+All methods share the same upset plots. We observe that Neuronal_inhibit cluster detects fewer DE genes compared to Neuronal_excit cluster. However, the numbrer of DE genes that correlation structure finds in each cluster individuallly is highter compared to muscat.
    
 ![](Upset_plot_muscat.png)
 *Upset Plot of DE genes per cluster in muscat simulation*  
@@ -656,8 +657,8 @@ The simulation framework is inspired by the muscat simulation such that it produ
 # Responsibilities
 In this section we list the main responsibilities of each group participant.
 
-*Chrysa Papadopoulou: Exploratory Analysis, DE Analysis, Visualisation
-*Iliana Papadopoulou: Exploratory Analysis, DE Analysis, Visualisation
+*Chrysa Papadopoulou: Preprocessing-Exploratory Analysis, DE Analysis, Visualisation
+*Iliana Papadopoulou: Preprocessing-Exploratory Analysis, DE Analysis, Visualisation
 *Adriano Martinelli: Simulation (as implemented in R package sta426), DockerFile
 
 # References
