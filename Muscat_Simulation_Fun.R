@@ -33,16 +33,6 @@ DS.analysis.pd <- function(sim,assay,fun,ds_method,topnumber,gene_info_pos){
   #Incomporate category type into tbl object
   tbl <- merge(tbl,sim_map,by=c("gene","cluster_id"))
   
-  # no. of DS genes per cluster
-  res_by_k <- split(tbl, tbl$cluster_id)
-  vapply(res_by_k, nrow, numeric(1))
-  
-  # top hits in each cluster
-  top <- do.call("rbind", lapply(res_by_k, head, 3))
-  top <- select(top, -c("contrast", "p_adj.glb"))
-  top$gene <- gsub("^.*\\.", "", top$gene)
-  format(data.frame(top, row.names = NULL), digits = 3)
-  
   tbl$category <- lapply(tbl$category, function(x) {gsub("de", "1", x) })
   tbl$category <- lapply(tbl$category, function(x) {gsub("ee", "0", x) })
   
@@ -55,6 +45,19 @@ DS.analysis.pd <- function(sim,assay,fun,ds_method,topnumber,gene_info_pos){
   colnames(padj) = method_name
   truth = as.data.frame(as.integer(unlist(tbl$category)))
   colnames(truth) = method_name
+  
+  #Retain only DE genes
+  tbl <-tbl[tbl$category==1,]
+  
+  # no. of DS genes per cluster
+  res_by_k <- split(tbl, tbl$cluster_id)
+  vapply(res_by_k, nrow, numeric(1))
+  
+  # top hits in each cluster
+  top <- do.call("rbind", lapply(res_by_k, head, 3))
+  top <- select(top, -c("contrast", "p_adj.glb"))
+  top$gene <- gsub("^.*\\.", "", top$gene)
+  format(data.frame(top, row.names = NULL), digits = 3)
   
   return(list(sim = sim,res = res ,tbl = tbl,res_by_k = res_by_k, pval  = pval,padj = padj, truth = truth ))
   
@@ -84,6 +87,20 @@ DS.analysis.mm <- function(sim,ds_method,type,vst,topnumber,gene_info_pos){
   #Incomporate category type into tbl object
   tbl <- merge(tbl,sim_map,by=c("gene","cluster_id"))
   
+  tbl$category <- lapply(tbl$category, function(x) {gsub("de", 1, x) })
+  tbl$category <- lapply(tbl$category, function(x) {gsub("ee", 0, x) })
+  
+  #Preparing TPR vs FDR object
+  method_name = paste0(type,"-",ds_method,"-",vst)
+  pval <- as.data.frame(tbl$p_val)
+  colnames(pval) = method_name
+  padj <- as.data.frame(tbl$p_adj.loc)
+  colnames(padj) = method_name
+  truth = as.data.frame(as.integer(unlist(tbl$category)))
+  colnames(truth) = method_name
+  
+  #Retain only DE genes
+  tbl <-tbl[tbl$category==1,]
   
   # no. of DS genes per cluster
   res_by_k <- split(tbl, tbl$cluster_id)
@@ -94,18 +111,6 @@ DS.analysis.mm <- function(sim,ds_method,type,vst,topnumber,gene_info_pos){
   top <- select(top, -c("p_adj.glb"))
   top$gene <- gsub("^.*\\.", "", top$gene)
   format(data.frame(top, row.names = NULL), digits = 3)
-  
-  #Preparing TPR vs FDR object
-  tbl$category <- lapply(tbl$category, function(x) {gsub("de", 1, x) })
-  tbl$category <- lapply(tbl$category, function(x) {gsub("ee", 0, x) })
-  
-  method_name = paste0(type,"-",ds_method,"-",vst)
-  pval <- as.data.frame(tbl$p_val)
-  colnames(pval) = method_name
-  padj <- as.data.frame(tbl$p_adj.loc)
-  colnames(padj) = method_name
-  truth = as.data.frame(as.integer(unlist(tbl$category)))
-  colnames(truth) = method_name
 
   return(list(sim = sim,res = res ,tbl = tbl,res_by_k = res_by_k, pval  = pval,padj = padj, truth = truth))
   
