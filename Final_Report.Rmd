@@ -177,6 +177,7 @@ sce_sim = create_dataset(sce_prep2, n_comp, n_cells, kNN, kNN_subsample, n_sampl
 ### Comparison of original data set, muscat and our simulation
 
 To ensure that our simulation framework is reasonable we perform a few visualisations to see if we observe any anomalies. Furthermore we make use of the ``countsimQC`` library to compare diverse characteristics of both simulations with the original data set.
+
 ```{r, fig.cap=c('PCA plot of sce_prep, sce_muscat and sce_sim','UMAP plot of sce_prep, sce_muscat and sce_sim','t-SNE plot of sce_prep, sce_muscat and sce_sim'), message=FALSE, warning=FALSE}
 
 #Convert counts
@@ -207,7 +208,7 @@ DESeq_prep = DESeq2::DESeqDataSetFromMatrix(counts(sce_prep), colData(sce_prep),
 QCdata = list("Original" = DESeq_prep, "sce_muscat" = DESeq_muscat, "sce_sim" = DESeq_sim)
 
 countsimQCReport(ddsList = QCdata, outputFile = "countsim_report.html",
-                 outputDir = "./CountSimReport/", outputFormat = "html_document", 
+                 outputDir = "./CountSimReport", outputFormat = "html_document", 
                  showCode = FALSE, forceOverwrite = TRUE,
                  savePlots = TRUE, description = "This is my test report.", 
                  maxNForCorr = 25, maxNForDisp = Inf, 

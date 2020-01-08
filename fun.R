@@ -51,7 +51,7 @@ create_dataset = function(sce, n_comp, n_cells, kNN, kNN_subsample, n_samples, l
 
   colData(sce_sim) = cbind(colData(sce_sim),colD)
   colData(sce_sim) = cbind(colData(sce_sim), data.frame(library.size.muscat = library_size_muscat))
-  
+
   #Determine group of cell (either de or ee) and library size
   group_id = data.frame(group_id = sample(c("B", "A"), replace = TRUE, size = sum(n_cells), prob = probs[[3]]))
   colData(sce_sim) = cbind(colData(sce_sim), group_id)
@@ -99,13 +99,10 @@ create_dataset = function(sce, n_comp, n_cells, kNN, kNN_subsample, n_samples, l
 
   #Create meta data
   experiment_info = data.frame(sample_id = unique(colData(sce_sim)$sample_id))
-  #group_id = sapply(strsplit(as.vector(experiment_info$sample_id), ".", fixed = TRUE), function(x) x[[2]])
-  #group_id[group_id == "ee"] = "A"
-  #group_id[group_id == "de"] = "B"
   experiment_info = cbind(experiment_info, group_id)
 
   n_cells = table(colData(sce_sim)$sample_id)
-  
+
   cluster_info = data.frame(cluster_id = cluster_id, logFC = c("logFC1", "logFC2"))
 
   gene_info = data.frame(gene = paste("gene", 1:nrow(sce_sim), sep = ""),
@@ -113,18 +110,18 @@ create_dataset = function(sce, n_comp, n_cells, kNN, kNN_subsample, n_samples, l
                          logFC1 = logFC1,
                          logFC2 = logFC2
                          )
-  
+
   gene_info2 = data.frame(gene = rep(gene_info$gene, each = 2),
                           cluster_id = cluster_id,
                           sim_gene = rep(gene_info$sim_gene, each = 2),
                           logFC = unlist(mapply(c,gene_info$logFC1, gene_info$logFC2, SIMPLIFY = FALSE)))
-  
+
   category = rep("ee", length(gene_info2$logFC))
   category[gene_info2$logFC != 0] = "de"
-  
+
   gene_info2 = cbind(gene_info2, category)
-  
-  
+
+
   cell_info = data.frame(cell = paste("cell", 1:ncol(sce_sim), sep = ""),
                          sim_cell = colData(sce_sim)$cell_id)
 
@@ -145,10 +142,10 @@ nb_counts = function(sce_sim, lFC){
 
   ds = rep(rowData(sce_sim)$dispersion, each = ncol(sce_sim))
   cluster_id = unique(colData(sce_sim)$cluster_id)
-  
+
   #Initialise mean matrix
   mu = matrix(-1, nrow = nrow(sce_sim),ncol = ncol(sce_sim))
-  
+
   #If the muscat meta data has been passed
   if(is.list(lFC)){
     for(i in 1:ncol(mu)){
@@ -164,7 +161,7 @@ nb_counts = function(sce_sim, lFC){
   }else{
     for(i in 1:ncol(mu)){
       if(sce_sim$group_id[[i]] == "B"){
-        mu[,i] = counts(sce_sim)[,i] * 2^rowData(sce_sim)$logFC
+        mu[,i] = counts(sce_sim)[,i] * 2^lFC
       }else{
         mu[,i] = counts(sce_sim)[,i]
       }
@@ -173,7 +170,12 @@ nb_counts = function(sce_sim, lFC){
 
   #Adjust mu to library.size
   mu_adj = matrix(-1, nrow = nrow(sce_sim),ncol = ncol(sce_sim))
+
+
   lib.size = colData(sce_sim)$library.size.muscat
+  if(all(lib.size == 0)){
+    lib.size = colData(sce_sim)$library.size
+  }
   for(i in 1:ncol(mu)){
     mu_adj[,i]=lib.size[i]*mu[,i]/sum(mu[,i])
   }

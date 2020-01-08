@@ -17,8 +17,19 @@ pkgs <- c("SingleCellExperiment",
           "ggplot2","gridExtra","grid",
           "edgeR",
           "irlba",
-          "muscat",
-          "devtools")
+          "countsimQC",
+          "devtools",
+          "tidyverse",
+          "TMB",
+          "cowplot",
+          "scDblFinder",
+          "dplyr",
+          "UpSetR",
+          "uwot",
+          "Rtsne"
+          )
 
 BiocManager::install(pkgs, update=FALSE, ask=FALSE, quiet=TRUE)
+
 install_github("adrianom2017/sta426-project/sta426")
+install_github("HelenaLC/muscat", ref="dream2", quiet = TRUE)
