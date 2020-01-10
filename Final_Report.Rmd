@@ -113,8 +113,8 @@ In this section we follow the muscat workflow to set up the sce for the simulati
 Based on this information we construct ``sce_prep2`` sucht that our simulation uses the same logFC for the same genes and the same library sizes for each cell.
 ```{r simulation}
 #Load simulation functions
-library(sta426) #load our simulation package
-#source('./fun.R', echo=FALSE) #TODO remove this and use package
+#library(sta426) #load our simulation package remotes::install_github("adrianom2017/sta426-project/sta426")
+source('./fun.R', echo=FALSE) #TODO remove this and use package
 
 sce_prep <- prepSCE(sce,
 cluster_id = "cluster_id",
@@ -124,7 +124,7 @@ drop = FALSE)
 sce_prep <- prepSim(sce_prep)
 counts(sce_prep) = as.matrix(counts(sce_prep))
 sce_prep = logNormCounts(sce_prep)
-saveRDS(sce_prep, file = "sce_prep.RDS")
+#saveRDS(sce_prep, file = "sce_prep.RDS")
 
 
 n_cluster = length(unique(colData(sce_prep)$cluster_id))
@@ -482,7 +482,7 @@ sim_ = sim_[sim_$gene %in% intersect_genes,]
 
 ##Comput order
 sim_order_e = order(sim_$p_adj.loc)
-muscat_order_e = sapply(sim_$gene[sim_order], function(x){
+muscat_order_e = sapply(sim_$gene[sim_order_e], function(x){
   which(x == muscat_$gene)})
 
 
@@ -497,7 +497,7 @@ sim_ = sim_[sim_$gene %in% intersect_genes,]
 
 ##Comput order
 sim_order_i = order(sim_$p_adj.loc)
-muscat_order_i = unlist(sapply(sim_$gene[sim_order], function(x){
+muscat_order_i = unlist(sapply(sim_$gene[sim_order_i], function(x){
   which(x == muscat_$gene)}))
 ```
 
@@ -601,7 +601,7 @@ In correlation structure, counts sum in edgeR method presents the best performan
 *TPR vs FDR plots for all pseudobulk methods in correlation structure simulation*  
   
 ### True vs Predicted DE genes for each cluster
-We compared the sets of genes that are truely DE (genes with a non-negative logFC in the simulation) and the genes found to be DE by the analysis framework. Here we show upset plots for the _counts_sum_edgeR_ method. We observe that only a small fraction of genes is detected as DE even though they are simulated as not differentially expressed. Nevertheless, the fraction of genes detected to be not DE even though they are is substantially higher. For the muscat simulation framework the fraction of not detected genes is in general lower (10%\ - 20%\) than for our simulation (25%\ - 40%\). 
+We compared the sets of genes that are truely DE (genes with a non-negative logFC in the simulation) and the genes found to be DE by the analysis framework. Here we show upset plots for the _counts_sum_edgeR_ method. We observe that only a small fraction of genes is detected as DE even though they are simulated as not differentially expressed. Nevertheless, the fraction of genes classified to be not DE even though they are is substantially higher. For the muscat simulation framework the fraction of not detected DE genes is in general lower (10%\ - 20%\) than for our simulation (25%\ - 40%\). 
 
 ```{r, fig.cap=c("counts_sum_edgeR muscat,Neuronal_excit", "counts_sum_edgeR muscat,Neuronal_excit", "counts_sum_edgeR sce_sim,Neuronal_excit", "counts_sum_edgeR sce_sim,Neuronal_excit")}
 
@@ -621,7 +621,7 @@ print(g4)
 ```
 
 ### Ranking of genes 
-
+Interestingly the ranking of the genes in the two methods is exactly the same (bug in code?).
 ```{r}
 q1 = qplot(x = sim_order_e, y = muscat_order_e) +
   labs(title = "Ranking of genes, Neuronal_excit",

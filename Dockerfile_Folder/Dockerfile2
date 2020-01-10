@@ -105,9 +105,9 @@ RUN pip install --no-cache-dir pipx && \
     pipx inject renku sentry-sdk && \
     pipx ensurepath
 
-COPY entrypoint.sh /entrypoint.sh
-ENTRYPOINT [ "/tini", "--", "/entrypoint.sh" ]
-CMD [ "jupyterhub-singleuser" ]
+#COPY entrypoint.sh /entrypoint.sh
+#ENTRYPOINT [ "/tini", "--", "/entrypoint.sh" ]
+#CMD [ "jupyterhub-singleuser" ]
 
 WORKDIR ${HOME}
 
@@ -115,4 +115,4 @@ WORKDIR ${HOME}
 
 # install additional packages
 COPY install.R /tmp/install.R
-RUN R -f /tmp/install.R
+#RUN R -f /tmp/install.R
