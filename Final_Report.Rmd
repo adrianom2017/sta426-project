@@ -350,6 +350,8 @@ Simulation_DS_analysis<-function(sce,pos,sim_type,methods){
 ```{r}
 methods <- list("sum_counts_edgeR","sum_counts_limma-voom","mean_logcounts_edgeR",
          "mean_logcounts_limma-voom")
+
+#methods <- list("mm_nbinom","mm_poisson", "mm_vst_DESeq")
 ```
 
 ```{r muscatDS,echo=TRUE, message=FALSE, warning=FALSE,include=FALSE}
@@ -650,7 +652,8 @@ The detection of DE genes seems to be more challenging in the correlation simula
 # Discussion
 
 We think it is crucial that the development of further simulation frameworks takes the correlation structure of the data into account. The strength of the correlation may be important for the performance of downstream analysis framesworks as suggested by our results. Nevertheless, the scope of this work does not allow to make a final statement about the importance of the correlation structure since we were only able to compare the methods in a very limited extend.
-Further work could investigate how the strength of the correlation influences the DE results as well as the size of the data sets in terms of library size, gene number or cell numbers. 
+
+Further work could investigate how the strength of the correlation influences the DE results as well as the size of the data sets in terms of library size, gene number or cell numbers. Moreover, the results from mixed models(`muscat::mmDS`) for methods `nbinom`, `poisson` and `vst DESeq` could be incorporated in the analysis. Despite the fact that they function correctly, it was not possible to produce their output and to integrate them into this study due to extreme computational power and limited resources. 
 
 The simulation framework is inspired by the muscat simulation such that it produces simulated data with the same parameters as the musact simulation. The flexibility of the simulation is therefore very restricted and cannot easily be extended to general data sets. But we would like to mention that the simulation framework can generate artificial data independent of a muscat simulation object and solely based on a real world sce object. 
 

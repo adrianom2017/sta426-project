@@ -64,6 +64,8 @@ DS.analysis.pd <- function(sim,assay,fun,ds_method,topnumber,gene_info_pos){
 }
 
 compute.mm <- function(sim,ds_method, vst){
+  
+  sim <- prepSCE(sim,cluster_id = "cluster_id",sample_id = "sample_id", group_id = "group_id",drop = FALSE)
   res <- muscat::mmDS(sim, method = ds_method, vst = vst)
   return(res)
 }
