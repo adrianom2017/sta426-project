@@ -474,7 +474,7 @@ upset_data_ms_ni = data.frame(True = DE_ms_ni, Predicted = DE_res_ms_ni)
 #Compute ranking of genes, Neuronal_excit
 
 ##Find genes in both analysis results
-sim_ = res_sim$table$B$Neuronal_excit
+sim_ = res_sim$table$B$Neuronal_excit 
 muscat_ = res_muscat$table$B$Neuronal_excit
 
 intersect_genes = intersect(sim_$gene, muscat_$gene)
@@ -484,8 +484,9 @@ sim_ = sim_[sim_$gene %in% intersect_genes,]
 
 ##Comput order
 sim_order_e = order(sim_$p_adj.loc)
+m_order_e = order(sim_$p_adj.loc)
 muscat_order_e = sapply(sim_$gene[sim_order_e], function(x){
-  which(x == muscat_$gene)})
+  which(x == muscat_$gene[m_order_e])})
 
 
 #Compute ranking of genes, Neuronal_inhib
@@ -499,8 +500,9 @@ sim_ = sim_[sim_$gene %in% intersect_genes,]
 
 ##Comput order
 sim_order_i = order(sim_$p_adj.loc)
+m_order_i = order(sim_$p_adj.loc)
 muscat_order_i = unlist(sapply(sim_$gene[sim_order_i], function(x){
-  which(x == muscat_$gene)}))
+  which(x == muscat_$gene[m_order_i])}))
 ```
 
 
