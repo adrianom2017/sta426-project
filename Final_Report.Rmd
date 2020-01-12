@@ -1,5 +1,5 @@
 ---
-title: "Final_Report"
+title: "Project Report sta426 Course"
 author: "Adriano Martinelli, Chrysa Papadopoulou, Iliana Papadopoulou" 
 date: "10/01/2020"
 output: html_document
@@ -114,7 +114,7 @@ In this section we follow the muscat workflow to set up the sce for the simulati
 * Extract the library sizes for each cell
 
 Based on this information we construct ``sce_prep2`` sucht that our simulation uses the same logFC for the same genes and the same library sizes for each cell.
-```{r simulation}
+```{r simulation, warnings = FALSE, message=FALSE}
 #Load simulation functions
 if (!requireNamespace("sta426", quietly = TRUE)){
   remotes::install_github("adrianom2017/sta426-project/sta426")
@@ -181,7 +181,7 @@ sce_sim = create_dataset(sce_prep2, n_comp, n_cells, kNN, kNN_subsample, n_sampl
 
 To ensure that our simulation framework is reasonable we perform a few visualisations to see if we observe any anomalies. Furthermore we make use of the ``countsimQC`` library to compare diverse characteristics of both simulations with the original data set. The most important plots are shown in the results section, the reader is inveted to inspect the other plots stored in the directory CountSimReport.
 
-```{r Comparison, fig.cap=c('*PCA plot of sce_prep, sce_muscat and sce_sim','*UMAP plot of sce_prep, sce_muscat and sce_sim','*t-SNE plot of sce_prep, sce_muscat and sce_sim'), message=FALSE, warning=FALSE}
+```{r Comparison, error=FALSE, warning=FALSE, fig.cap=c('*PCA plot of sce_prep, sce_muscat and sce_sim*','*UMAP plot of sce_prep, sce_muscat and sce_sim*','*t-SNE plot of sce_prep, sce_muscat and sce_sim*'), message=FALSE, warning=FALSE}
 
 #Convert counts
 sce_muscat = logNormCounts(sce_muscat)
@@ -211,55 +211,13 @@ DESeq_prep = DESeq2::DESeqDataSetFromMatrix(counts(sce_prep), colData(sce_prep),
 QCdata = list("Original" = DESeq_prep, "sce_muscat" = DESeq_muscat, "sce_sim" = DESeq_sim)
 
 # countsimQCReport(ddsList = QCdata, outputFile = "countsim_report.html",
-#                  outputDir = "./CountSimReport", outputFormat = "html_document", 
+#                  outputDir = "./CountSimReport", outputFormat = "html_document",
 #                  showCode = FALSE, forceOverwrite = TRUE,
-#                  savePlots = TRUE, description = "This is my test report.", 
-#                  maxNForCorr = 25, maxNForDisp = Inf, 
-#                  calculateStatistics = TRUE, subsampleSize = 25,
-#                  kfrac = 0.01, kmin = 5, 
+#                  savePlots = TRUE, description = "This is my test report.",
+#                  maxNForCorr = 100, maxNForDisp = Inf,
+#                  calculateStatistics = TRUE, subsampleSize = 100,
+#                  kfrac = 0.01, kmin = 5,
 #                  permutationPvalues = FALSE, nPermutations = NULL)
-
-```
-
-
-```{r, eval = FALSE}
-subsample = sample(1:ncol(sce_prep), ncol(sce_sim))
-  
-#Distribution of counts
-par(mfrow=c(3,1))
-hist(logcounts(sce_prep)[sample(1:nrow(sce_prep), nrow(sce_sim))])
-hist(logcounts(sce_muscat))
-hist(logcounts(sce_sim))
-
-#Sum of counts
-countSum = data.frame(sce_prep = sum(counts(sce_prep)[,subsample]),
-                      sce_muscat = sum(counts(sce_muscat)),
-                      sce_sim = sum(counts(sce_sim)))
-par(mfrow=c(1,1))
-barplot(as.matrix(countSum), main = "Count sum of different SingleCellExperiment data sets")
-
-table(metadata(sce_sim)$category)
-table(metadata(sce_muscat)$category)
-
-
-#Cell-cell correlation structure
-CellCellCor = list("sce_prep" = cor(counts(sce_prep)[,subsample]),
-                   "sce_muscat" = cor(counts(sce_muscat)),
-                   "sce_sim" = cor(counts(sce_sim)))
-
-x = 1:ncol(sce_muscat)
-par(mfrow = c(1,2))
-image(x,x,CellCellCor$sce_muscat, axes = FALSE, xlab = '', ylab = '')
-image(x,x,CellCellCor$sce_sim, axes = FALSE, xlab = '', ylab = '')
-
-#Gene-Gene correlation structure
-#GeneGeneCor = list("sce_prep" = cor(t(counts(sce_prep)[,subsample])),
-#                   "sce_muscat" = cor(t(counts(sce_muscat))),
-#                   "sce_sim" = cor(t(counts(sce_sim))))
-
-# x = 1:nrow(sce_muscat)
-# par(mar = c(5,6,6,4), cex = 0.5)
-# image(x,x,GeneGeneCor$sce_muscat, axes = FALSE, xlab = '', ylab = '')
 
 ```
 
@@ -274,7 +232,7 @@ Firstly, we aggregate measurements for each sample in each cluster to pseudobulk
 source('./Muscat_Simulation_Fun.R', echo=FALSE)
 ```
 
-```{r,message=FALSE, warning=FALSE, echo=FALSE, include=FALSE }
+```{r,message=FALSE, warnings = FALSE, message=FALSE}
 Simulation_DS_analysis<-function(sce,pos,sim_type,methods){
   
   upset_plot_cluster = list()
@@ -353,7 +311,7 @@ Simulation_DS_analysis<-function(sce,pos,sim_type,methods){
 ```
 
 ### Simulation
-```{r}
+```{r, warning=FALSE, results="hide", warnings = FALSE, message=FALSE}
 methods <- list("sum_counts_edgeR","sum_counts_limma-voom","mean_logcounts_edgeR",
          "mean_logcounts_limma-voom")
 
@@ -537,7 +495,7 @@ The comparison of our simulation with the original data set and the muscat simul
 As a further check of the simulatons and DE analysis workflows we investigate if the logFC changes found the by DE analysis correspond to the logFC change defined in the simulation. We show this comparison for the ``counts_sum_edgeR`` method but other methods provide similar results. We observe that the data points are scattered around the diagonal indicating that the simulations are able to reproduce the specified logFCs as well as that the DE analysis framework is able to identify these logFCs in the data as well. Generally, the negative logFCs are more noisy in the ``sce_sim`` compared to the ``sce_muscat``. 
 
 
-```{r, fig.cap="Simulated logFC and logFC obtained from DE analysis."}
+```{r, fig.cap="*Simulated logFC and logFC obtained from DE analysis.*"}
 par(mfrow = c(2,2))
 plot(lfc_mm_ni, lfc_res_mm_ni, xlab = "", ylab = "")
 title(main = "Neuronal_inhib sce_muscat", xlab = "True logFC", ylab = "DE analysis logFC")
@@ -613,7 +571,7 @@ In correlation structure, counts sum in edgeR method presents the best performan
 ### True vs Predicted DE genes for each cluster
 We compared the sets of genes that are truely DE (genes with a non-zero logFC in the simulation) and the genes found to be DE by the analysis framework. Here we show upset plots for the _counts_sum_edgeR_ method. We observe that only a small fraction of genes is detected as DE even though they are simulated as not differentially expressed. Nevertheless, the fraction of genes classified to be not DE even though they are is substantially higher. For the muscat simulation framework the fraction of not detected DE genes is in general lower (10%\ - 20%\) than for our simulation (25%\ - 40%\). 
 
-```{r, fig.cap=c("*counts_sum_edgeR muscat,Neuronal_excit", "*counts_sum_edgeR muscat,Neuronal_inhib", "*counts_sum_edgeR sce_sim,Neuronal_excit", "*counts_sum_edgeR sce_sim,Neuronal_inhib")}
+```{r, fig.cap=c("*counts_sum_edgeR muscat,Neuronal_excit*", "*counts_sum_edgeR muscat,Neuronal_inhib*", "*counts_sum_edgeR sce_sim,Neuronal_excit*", "*counts_sum_edgeR sce_sim,Neuronal_inhib*")}
 
 #True vs predicted
 g1 = upset(upset_data_mm_ne, empty.intersections = TRUE)
@@ -624,10 +582,10 @@ g3 = upset(upset_data_ms_ne, empty.intersections = TRUE)
 
 g4 = upset(upset_data_ms_ni, empty.intersections = TRUE)
 
-print(g1)
-print(g2)
-print(g3)
-print(g4)
+g1
+g2
+g3
+g4
 ```
 
 ### Ranking of genes 
