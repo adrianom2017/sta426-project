@@ -10,7 +10,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 # Introduction
-Single-cell RNA sequencing technologies allow the quantification of RNA molecules in biological samples in counts of reads mapped to the genes. Indeed, they are used to profile genome-wide high-resolution instances of gene expression activity and modifications in individual cells over time as well as monitor discrepancies in gene expression in different groups or treatments across conditions.However, the presence of multi-condition scRNA-seq datasets dictates the need to perform sample-level inferences.    
+Single-cell RNA sequencing technologies allow the quantification of RNA molecules in biological samples in counts of reads mapped to the genes. Indeed, they are used to profile genome-wide high-resolution instances of gene expression activity and modifications in individual cells over time as well as monitor discrepancies in gene expression in different groups or treatments across conditions. However, the presence of multi-condition scRNA-seq datasets dictates the need to perform sample-level inferences.    
 
 The aim of this project is to extend the simulation framework Muscat (Multi-sample multi-group scRNA-seq analysis tools) [1] established in the group of Prof. Mark Robinson in collaboration with Pierre Luc Germain. More precisely, the ``muscat`` simulation framework currently used in the group does not take the gene-gene correlation into account, sampling each gene in each cell independently. It is suspected that this may bias the evaluation of downstream analysis techniques. Since it is well known that gene-gene correlation is observed in real world data sets, the goal of our analysis is to explore the effect of gene-gene correlation on the differential expression (DE) analysis, while compairing it with the ``muscat`` simulation framework.
 
@@ -78,9 +78,12 @@ sce = prep_steps(sce)
 We created a simulation framework that produces a correlation structure in the simulated counts to explore the effect of such correlation on analysis techniques. To make our results comprable to existing methods (muscat simulation framework) we tried to produce a simulation that allows us to generate data sets with similar characteristics as the muscat framework in terms of number of cells, number of samples, number of cluster and the distribution of those cells across samples and clusters. The typical input data set is a ``SingleCellExperiment`` file which consits of multiple wild types samples containing multiple cell types.
 
 The pipeline of the simulation is:
+
 * Generate correlation structure reflected in mean counts for each gene and cell
-* Sample counts for each cell type and sample from a negative binomial distribution based on mean counts, gene-wise dispersion and library size
+* Sample counts for each cell type from a negative binomial distribution based on mean counts, gene-wise dispersion and library size
 * Concatenate simulated data into a ``SingleCellExperiment``
+
+The relevant functions of the simulation were implemented in the R-package ``sta426`` that can be installed from the git repository (adrianom2017/sta426-project/sta426). The documentation of the package is very limited at the moment and solely focused on the simulation function ``create_dataset()``.
 
 ### Generation of correlation structure
 In a first step the ``SingleCellExperiment`` is subsected into each sample. Each sample is further subsected into the single cell types. This is the original data for a single simulation round, i.e. we construct the correlation structure for each cell type of each sample seperately as follows:
@@ -88,13 +91,13 @@ In a first step the ``SingleCellExperiment`` is subsected into each sample. Each
 * Perform PCA on the data with gene as features
 * Compute _k_-nearest neighbours of a cell
 * Randomly select _N_ cells from the nearest neighbours with replacement
-* Average the top principal components to create a artificial cell
+* Average the top principal components to create an artificial cell
 * Project artificial cell from PCA space back into logcounts space
 
 By averaging different subsets we obtain a correlation structure among the artificial cells. Note that we have to repeate this procedure for each cell type of each sample.
 
 ### Construct simulated ``SingleCellExperiment``
-To obtain a complete artificial dataset we need to generate multiple samples with different cell types. Therefore we repeat the above described procedure for each cell type in a sample and for each sample in the original data set. This gives us a matrix of mean logcounts of the artificial cells each associated with a given cell type and sample id. We use convert this mean logcount matrix back to a count matrix and use this mean count matrix together with the gene-wise dispersion computed from the original data set as well as the library size of a given cell to generate artifical counts by sampling from a negative binomial distribution. This results in the final artifical count matrix.
+To obtain a complete artificial dataset we need to generate multiple samples with different cell types. Therefore we repeat the above described procedure for each cell type in a sample and for each sample in the original data set. This gives us a matrix of mean logcounts of the artificial cells each associated with a given cell type and sample id. We convert this mean logcount matrix back to a count matrix and use this mean count matrix together with the gene-wise dispersion computed from the original data set as well as the library size of a given cell to generate artifical counts by sampling from a negative binomial distribution. This results in the final artifical count matrix.
 
 ### Simulation work-flow overview
 We summarise this section by giving an overview of the whole procedure to generate the artificial counts:
@@ -106,15 +109,18 @@ We summarise this section by giving an overview of the whole procedure to genera
 ### Run simulation
 In this section we follow the muscat workflow to set up the sce for the simulation with muscat (sce_prep). Based on the ``sce_prep`` object we run the muscat simulation (``sce_muscat``). From this object we extract the information needed to setup ``sce_prep2`` that is used by our simulation. We introduced this step to enable a simulation that is as close as possible to the muscat simulation such that a comparison of the two methods is as meaningful as possible. The preparation steps contain:
 
-*Identify the (resampled) genes used in the musact simulation
-*Extract the logFC of each genes from the metadata
-*Extract the library sizes for each cell
+* Identify the (resampled) genes used in the musact simulation
+* Extract the logFC of each genes from the metadata
+* Extract the library sizes for each cell
 
 Based on this information we construct ``sce_prep2`` sucht that our simulation uses the same logFC for the same genes and the same library sizes for each cell.
 ```{r simulation}
 #Load simulation functions
-#library(sta426) #load our simulation package remotes::install_github("adrianom2017/sta426-project/sta426")
-source('./fun.R', echo=FALSE) #TODO remove this and use package
+if (!requireNamespace("sta426", quietly = TRUE)){
+  remotes::install_github("adrianom2017/sta426-project/sta426")
+}
+library(sta426)
+#source('./fun.R', echo=FALSE) #TODO remove this and use package
 
 sce_prep <- prepSCE(sce,
 cluster_id = "cluster_id",
@@ -173,9 +179,9 @@ sce_sim = create_dataset(sce_prep2, n_comp, n_cells, kNN, kNN_subsample, n_sampl
 
 ### Comparison of original data set, muscat and our simulation
 
-To ensure that our simulation framework is reasonable we perform a few visualisations to see if we observe any anomalies. Furthermore we make use of the ``countsimQC`` library to compare diverse characteristics of both simulations with the original data set.
+To ensure that our simulation framework is reasonable we perform a few visualisations to see if we observe any anomalies. Furthermore we make use of the ``countsimQC`` library to compare diverse characteristics of both simulations with the original data set. The most important plots are shown in the results section, the reader is inveted to inspect the other plots stored in the directory CountSimReport.
 
-```{r Comparison, fig.cap=c('PCA plot of sce_prep, sce_muscat and sce_sim','UMAP plot of sce_prep, sce_muscat and sce_sim','t-SNE plot of sce_prep, sce_muscat and sce_sim'), message=FALSE, warning=FALSE}
+```{r Comparison, fig.cap=c('*PCA plot of sce_prep, sce_muscat and sce_sim','*UMAP plot of sce_prep, sce_muscat and sce_sim','*t-SNE plot of sce_prep, sce_muscat and sce_sim'), message=FALSE, warning=FALSE}
 
 #Convert counts
 sce_muscat = logNormCounts(sce_muscat)
@@ -351,15 +357,9 @@ Simulation_DS_analysis<-function(sce,pos,sim_type,methods){
 methods <- list("sum_counts_edgeR","sum_counts_limma-voom","mean_logcounts_edgeR",
          "mean_logcounts_limma-voom")
 
-#methods <- list("mm_nbinom","mm_poisson", "mm_vst_DESeq")
-```
-
-```{r muscatDS,echo=TRUE, message=FALSE, warning=FALSE,include=FALSE}
 ###  Muscat Simulation
 Simulation_DS_analysis(sce_muscat,3,"muscat",methods)
-```
 
-```{r simulationDS, echo=TRUE, message=FALSE, warning=FALSE,include=FALSE}
 ### Correlation Structure Simulation
 Simulation_DS_analysis(sce_sim,4,"correlation_structure",methods)
 ```
@@ -369,7 +369,7 @@ Simulation_DS_analysis(sce_sim,4,"correlation_structure",methods)
 We calculate the true positive rate (TPR) vs false discovery rate (FDR) for each method and we produce UpSet-plots for them. The aforementioned visualizes the number of DE genes intersecting across clusters or the ones that are unique, as well as the number of DE genes that are shared between the predictions and the ground truth. [5]
 
 ### Simulation Quality Control
-As a further check if the the simulatons and DE analysis workflows are feasible we investigate if the logFC changes found the by DE analysis correspond to the logFC change defined in the simulation. We show this comparison for the ``counts_sum_edgeR`` method but other methods provide similar results (see results section for plots).
+As a further check of the the simulations and DE analysis workflows we investigate if the logFC changes found the by DE analysis correspond to the logFC change defined in the simulation (see results section for plots).
 
 ```{r}
 res_muscat = readRDS("output/muscat/DS_results_counts_sum_edgeR.rds")
@@ -474,20 +474,21 @@ upset_data_ms_ni = data.frame(True = DE_ms_ni, Predicted = DE_res_ms_ni)
 #Compute ranking of genes, Neuronal_excit
 
 ##Find genes in both analysis results
-sim_ = res_sim$table$B$Neuronal_excit 
+sim_ = res_sim$table$B$Neuronal_excit
 muscat_ = res_muscat$table$B$Neuronal_excit
-
 intersect_genes = intersect(sim_$gene, muscat_$gene)
 
 muscat_ = muscat_[muscat_$gene %in% intersect_genes,]
 sim_ = sim_[sim_$gene %in% intersect_genes,]
 
-##Comput order
+##Order gnes according to p_adj.loc
 sim_order_e = order(sim_$p_adj.loc)
-m_order_e = order(sim_$p_adj.loc)
+m_order_e = order(muscat_$p_adj.loc)
 muscat_order_e = sapply(sim_$gene[sim_order_e], function(x){
   which(x == muscat_$gene[m_order_e])})
 
+pval_sim_e = sim_$p_adj.loc[sim_order_e]
+pval_mus_e = muscat_$p_adj.loc[muscat_order_e]
 
 #Compute ranking of genes, Neuronal_inhib
 sim_ = res_sim$table$B$Neuronal_inhib
@@ -500,17 +501,23 @@ sim_ = sim_[sim_$gene %in% intersect_genes,]
 
 ##Comput order
 sim_order_i = order(sim_$p_adj.loc)
-m_order_i = order(sim_$p_adj.loc)
+m_order_i = order(muscat_$p_adj.loc)
 muscat_order_i = unlist(sapply(sim_$gene[sim_order_i], function(x){
   which(x == muscat_$gene[m_order_i])}))
+
+pval_sim_i = sim_$p_adj.loc[sim_order_i]
+pval_mus_i = muscat_$p_adj.loc[muscat_order_i]
+
 ```
 
+### Reproducibility
+As open and reproducible code was an imporant part of this course we tried to provide a docker image (can be found here [7]) to run the simulation in a reproducible manner. The structure of the dockerfile is inspired by the examples on renku lab but starts from ``rocker/rstudio:3.6.1`` and builds on top of that the necessary libraries and installs the required packages. Unfortnunately we were not able to sort out all issues with the build of the dockerfile and some R-packages are not able to load probably due to missing system libraries. All files relevant to build the docker image can be found in the repository Dockerfile_folder.
 
 # Results
 ## Simulation Quality Control
 ### ``countsimQC`` Results
 
-The comparison of our simulation with the original data set and the muscat simulation shows that the library sizes of both simulation is much larger than in the original data set. This is due to the fact that muscat generates a larger library size that is larger than the original data set and we use the muscat library sizes in a further step in our simulation. Furthermore the ``sce_sim`` simulation shows a larger variability in the library sizes than the muscat simulation. We also observe a larger fraction of zeros per feature for our simulation but less variability in the feature-feature correlation. Since the simulatons consit of many parts that are inherently random we argue that these variations are in the scope of the randomness and we do not observe a systematic deviation from the original data set neither for the muscat simulation nor our simulation framework. Overall this qualitative assessment of the simulation indicates that our simulation framework is feasible. 
+The comparison of our simulation with the original data set and the muscat simulation shows that the library sizes of both simulation is much larger than in the original data set. This is due to the fact that muscat generates a library size that is larger than the one of the original data set and we use the muscat library sizes in a further step in our simulation. Furthermore the ``sce_sim`` simulation shows a larger variability in the library sizes than the muscat simulation. We also observe a larger fraction of zeros per feature for our simulation but less variability in the feature-feature correlation. Since the simulations consits of many parts that are inherently random we argue that these variations are in the scope of the randomness and we do not observe a systematic deviation from the original data set neither for the muscat simulation nor our simulation framework. Overall this qualitative assessment of the simulation indicates that our simulation framework is feasible. 
 
 ![](CountSimReport/countsim_report_files/figure-html/dispersionDESeq2-1.png)
 
@@ -543,7 +550,7 @@ title(main = "Neuronal_excit sce_sim", xlab = "True logFC", ylab = "DE analysis 
 ```
 
 ## Data visualisation
-We visualise the data in form of PCA, UMAP and t-SNE plots for the original data set and both simulations. We see that in both simulation frameworks the different conditions introduce substancial variance into the data as expected. We observe that in our simulation framework the two cell types in the unperturbed condition are not as well seperated as in the muscat simulation. 
+We visualise the data in form of PCA, UMAP and t-SNE plots for the original data set and both simulations. We see that in both simulation frameworks the different conditions introduce substancial variance into the data as expected. We observe that in our simulation framework the two cell types in the unperturbed condition are not as well seperated as in the muscat simulation. Interestingly the separation of the unpertrubed cell types is only possible in the muscat simulatio framework but neither observed in the original data set nor our simulation framework. 
 ```{r}
 #Plot dim reductions
 par(mfrow=c(3,1))
@@ -566,18 +573,17 @@ grid.arrange(g1,g2,g3, nrow = 1, ncol = 3)
 ```
 
 ## DE Analysis
-We applied 4 methods in total to the simulated data sets, including
+We applied four methods in total to the simulated data sets, including
 
-*sum counts in edgeR,
-*sum counts in limma-voom,
-*mean logcounts in edgeR,
-*mean logcounts in limma-voom
+* sum counts in edgeR,
+* sum counts in limma-voom,
+* mean logcounts in edgeR,
+* mean logcounts in limma-voom
 
-In each case DE genes are retrieved when adj. p-value <0.05. For each method we calculate the ground truth, which is included in the category column of the metadata of our sce object. [5]
+In each case DE genes are retrieved when adj. p-value < 0.05. For each method we calculate the ground truth, which is included in the category column of the metadata of our sce object. [5]
 
 ### DE genes per cluster
-
-All methods share the same upset plots. We observe that Neuronal_inhibit cluster detects fewer DE genes compared to Neuronal_excit cluster. However, the numbrer of DE genes that correlation structure finds in each cluster individuallly is highter compared to muscat.
+All methods share the same upset plots. We observe that Neuronal_inhibit cluster detects fewer DE genes compared to Neuronal_excit cluster. However, the number of DE genes that correlation structure finds in each cluster individually is higher compared to muscat.
    
 ![](Upset_plot_muscat.png)
 *Upset Plot of DE genes per cluster in muscat simulation*  
@@ -605,9 +611,9 @@ In correlation structure, counts sum in edgeR method presents the best performan
 *TPR vs FDR plots for all pseudobulk methods in correlation structure simulation*  
   
 ### True vs Predicted DE genes for each cluster
-We compared the sets of genes that are truely DE (genes with a non-negative logFC in the simulation) and the genes found to be DE by the analysis framework. Here we show upset plots for the _counts_sum_edgeR_ method. We observe that only a small fraction of genes is detected as DE even though they are simulated as not differentially expressed. Nevertheless, the fraction of genes classified to be not DE even though they are is substantially higher. For the muscat simulation framework the fraction of not detected DE genes is in general lower (10%\ - 20%\) than for our simulation (25%\ - 40%\). 
+We compared the sets of genes that are truely DE (genes with a non-zero logFC in the simulation) and the genes found to be DE by the analysis framework. Here we show upset plots for the _counts_sum_edgeR_ method. We observe that only a small fraction of genes is detected as DE even though they are simulated as not differentially expressed. Nevertheless, the fraction of genes classified to be not DE even though they are is substantially higher. For the muscat simulation framework the fraction of not detected DE genes is in general lower (10%\ - 20%\) than for our simulation (25%\ - 40%\). 
 
-```{r, fig.cap=c("counts_sum_edgeR muscat,Neuronal_excit", "counts_sum_edgeR muscat,Neuronal_excit", "counts_sum_edgeR sce_sim,Neuronal_excit", "counts_sum_edgeR sce_sim,Neuronal_excit")}
+```{r, fig.cap=c("*counts_sum_edgeR muscat,Neuronal_excit", "*counts_sum_edgeR muscat,Neuronal_inhib", "*counts_sum_edgeR sce_sim,Neuronal_excit", "*counts_sum_edgeR sce_sim,Neuronal_inhib")}
 
 #True vs predicted
 g1 = upset(upset_data_mm_ne, empty.intersections = TRUE)
@@ -625,7 +631,9 @@ print(g4)
 ```
 
 ### Ranking of genes 
-Interestingly the ranking of the genes in the two methods is exactly the same (bug in code?).
+Here he compare the ranking of all genes according to their p.adj.loc value (high ranking corresponds to low p-value, i.e. gene with rank 1 has a lower p.adj than a gene ranked 10) for the method _counts_sum_edgeR_. In the first row we plot the ranks of each gene for both methods against each other. In the second row we plot the p.adj value of each gene for both methods against each other.
+
+We can see that even though there are regions in which the relative ranking of both methods correspond quite well (indicated by a diagonal line), the interesting region (top 600 - 800 genes) appear as a scatter. Moreover we can see that for both cell types a gene with with a high ranking in the correlation simulation (sim_order) has a high predominantly a high ranking in the muscat simulation as well. On the other hand a gene with high ranking in the muscat simulation can have an arbitrary rank in the correlation simulation. To see this observe that the scattered area always extends along the whole x-axis but not the y-axis. 
 ```{r}
 q1 = qplot(x = sim_order_e, y = muscat_order_e) +
   labs(title = "Ranking of genes, Neuronal_excit",
@@ -637,10 +645,21 @@ q2 = qplot(x = sim_order_i, y = muscat_order_i) + labs(title = "Ranking of genes
        xlab = "Ranking of genes for both simulations",
        ylab= "Ranking muscat simulation")
 
-grid.arrange(q1,q2, ncol = 2)
+q3 = qplot(x = pval_sim_e, y = pval_mus_e) +
+  labs(title = "Ranking of genes, Neuronal_excit",
+       subtitle = "Method: count_sum_edgeR",
+       xlab = "Ranking of genes for both simulations",
+       ylab= "Ranking muscat simulation") +
+  scale_x_log10() + scale_y_log10()
+q4 = qplot(x = pval_sim_i, y = pval_mus_i) +
+  labs(title = "Ranking of genes, Neuronal_inhib",
+       subtitle = "Method: count_sum_edgeR",
+       xlab = "Ranking of genes for both simulations",
+       ylab= "Ranking muscat simulation") +
+  scale_x_log10() + scale_y_log10()
+
+grid.arrange(q1,q2,q3,q4, ncol = 2, nrow = 2)
 ```
-
-
 
 # Conclusions
 
@@ -648,7 +667,7 @@ In conclusion, we devised a flexible gene correlation structure simulation frame
 
 For exploring the outcome of the gene-gene correlation on the differential expression (DE) analysis, we compared the gene correlation structure simulation with the muscat simulation framework. Particularly, we considered four different methods for the comparison, including sum counts in edgeR, sum counts in limma-voom, mean logcounts in edgeR as well as mean logcounts in limma-voom. We observed that all methods in the correlation structure framework, except the mean logcounts in limma-voom, presented diminished performance with lower TPR and larger FDR.
 
-The detection of DE genes seems to be more challenging in the correlation simulation framework as suggested by the fact that less truly DE genes are detected compared to the muscat simulation framework which does not explicilty implement a correlation structure. This indicates that the correlation reduces the power of the analysis methods and may play a crucial role when trying to detect DE features.
+The detection of DE genes seems to be more challenging in the correlation simulation framework as suggested by the fact that less truly DE genes are detected compared to the muscat simulation framework which does not explicilty implement a correlation structure. This indicates that the correlation reduces the power of the analysis methods and may play a crucial role when trying to detect DE features. Furthermore the fact that the relative ordering of DE genes is not invariant with respect to the simulation method is a concerning observation and implies that gene-gene correlations may strongly influence the interpretation of DE results. 
 
 
 # Discussion
@@ -662,15 +681,20 @@ The simulation framework is inspired by the muscat simulation such that it produ
 # Responsibilities
 In this section we list the main responsibilities of each group participant.
 
-*Chrysa Papadopoulou: Preprocessing-Exploratory Analysis, DE Analysis, Visualisation
-*Iliana Papadopoulou: Preprocessing-Exploratory Analysis, DE Analysis, Visualisation
-*Adriano Martinelli: Simulation (as implemented in R package sta426), DockerFile
+* Chrysa Papadopoulou: Preprocessing-Exploratory Analysis, DE Analysis, Visualisation
+* Iliana Papadopoulou: Preprocessing-Exploratory Analysis, DE Analysis, Visualisation
+* Adriano Martinelli: Simulation (as implemented in R package sta426), DockerFile
 
 # References
 
 [1] (https://www.biorxiv.org/content/10.1101/713412v1.full)
-[2] (https://bioconductor.org/packages/release/bioc/html/scDblFinder.html)
-[3] (http://bioconductor.org/packages/release/bioc/html/scater.html) 
-[4] (https://bioconductor.org/packages/devel/bioc/vignettes/scater/inst/doc/overview.html#3_quality_control)
-[5] Our analysis is based on [](https://github.com/HelenaLC/muscat/blob/master/vignettes/vignette.Rmd) and [](https://github.com/HelenaLC/BC2_2019-workshop_multi-scRNA-seq/blob/master/LPS)
 
+[2] (https://bioconductor.org/packages/release/bioc/html/scDblFinder.html)
+
+[3] (http://bioconductor.org/packages/release/bioc/html/scater.html) 
+
+[4] (https://bioconductor.org/packages/devel/bioc/vignettes/scater/inst/doc/overview.html#3_quality_control)
+
+[5] Our analysis is based on (https://github.com/HelenaLC/muscat/blob/master/vignettes/vignette.Rmd) and (https://github.com/HelenaLC/BC2_2019-workshop_multi-scRNA-seq/blob/master/LPS)
+
+[7] https://hub.docker.com/repository/docker/adrianom2019/sta426
