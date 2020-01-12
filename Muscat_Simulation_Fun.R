@@ -208,7 +208,9 @@ DS.analysis.Visualization.mm <-function(ds,ds_method,type,vst,topnumber,num,sim_
   
   # Between-cluster concordance
   ds_gs <- lapply(res_by_k, pull, "gene")
-  upset <- upset(fromList(ds_gs), sets = levels(sim$cluster_id))
+  upset <- upset(fromList(ds_gs), empty.intersections = "on", 
+                 intersections = list(list("Neuronal_excit", "Neuronal_inhib"),
+                                      list("Neuronal_excit"), list("Neuronal_inhib")))
   
   # DR colored by expression
   if ((ds_method == "dream")){
@@ -250,7 +252,6 @@ DS.analysis.Visualization.pb <-function(ds,assay,fun,ds_method,topnumber,num,sim
   
   # Between-cluster concordance
   ds_gs <- lapply(res_by_k, pull, "gene")
- # upset <- upset(fromList(ds_gs), sets = levels(sim$cluster_id))
   upset <- upset(fromList(ds_gs), empty.intersections = "on", 
                 intersections = list(list("Neuronal_excit", "Neuronal_inhib"),
                                      list("Neuronal_excit"), list("Neuronal_inhib")))
