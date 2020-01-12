@@ -311,7 +311,7 @@ Simulation_DS_analysis<-function(sce,pos,sim_type,methods){
 ```
 
 ### Simulation
-```{r, warning=FALSE, results="hide", warnings = FALSE, message=FALSE}
+```{r, warning=FALSE, results="hide", warnings = FALSE, message=FALSE,include=FALSE}
 methods <- list("sum_counts_edgeR","sum_counts_limma-voom","mean_logcounts_edgeR",
          "mean_logcounts_limma-voom")
 
