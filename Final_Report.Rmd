@@ -311,9 +311,23 @@ Simulation_DS_analysis<-function(sce,pos,sim_type,methods){
 ```
 
 ### Simulation
-```{r, warning=FALSE, results="hide", warnings = FALSE, message=FALSE,include=FALSE}
+
+```{r, eval=FALSE}
 methods <- list("sum_counts_edgeR","sum_counts_limma-voom","mean_logcounts_edgeR",
          "mean_logcounts_limma-voom")
+
+###  Muscat Simulation
+Simulation_DS_analysis(sce_muscat,3,"muscat",methods)
+
+### Correlation Structure Simulation
+Simulation_DS_analysis(sce_sim,4,"correlation_structure",methods)
+```
+
+```{r,include=FALSE}
+methods <- list("sum_counts_edgeR","sum_counts_limma-voom","mean_logcounts_edgeR",
+         "mean_logcounts_limma-voom")
+
+# warning=FALSE, results="hide", warnings = FALSE, message=FALSE,
 
 ###  Muscat Simulation
 Simulation_DS_analysis(sce_muscat,3,"muscat",methods)
