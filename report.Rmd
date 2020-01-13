@@ -235,7 +235,6 @@ source('./Muscat_Simulation_Fun.R', echo=FALSE)
 ```{r,message=FALSE, warnings = FALSE, message=FALSE}
 Simulation_DS_analysis<-function(sce,pos,sim_type,methods){
   
-  upset_plot_cluster = list()
   TPR.vs.FDR_plot = list()
   labels =  c('A', 'B','C','D')
 
@@ -282,23 +281,8 @@ Simulation_DS_analysis<-function(sce,pos,sim_type,methods){
     if (!is_null(plots$TPR.vs.FDR)){
       TPR.vs.FDR_plot[[num]] <- plots$TPR.vs.FDR
     }
-    if (!is_null(plots$upset)){
-      upset_plot_cluster[[num]] <- plots$upset
-    }
 
   }
-  
-  #Upset plot
-  upset_list <- list(upsetPlot = upset_plot_cluster[1])
-  for (v in names(upset_list)) {
-    print(upset_list[[v]])
-    grid.text(v, x = 0.65, y=0.97, gp = gpar(fontsize = 20))
-    grid.edit('arrange',name = v) 
-    vp <- grid.grab()
-    upset_list[[v]] <- vp
-  }
-  upset_plot = grid.arrange(grobs = upset_list, ncol = 2)
-  save_plot(paste0("Upset_plot_",sim_type,".png"), upset_plot, ncol = 2)
   
   # TPR.vs.FDR plot
   TPR.vs.FDR = plot_grid(plotlist=TPR.vs.FDR_plot[1:2],labels = labels[1:2], label_size = 12)
@@ -554,17 +538,6 @@ We applied four methods in total to the simulated data sets, including
 
 In each case DE genes are retrieved when adj. p-value < 0.05. For each method we calculate the ground truth, which is included in the category column of the metadata of our sce object. [5]
 
-### Simulated DE genes per cluster
-
-In the following upset plots we observe the number of genes that were simulated as differentially expressed per cluster for the muscat and for the correlation structure. Apparenty, both frameworks present similar results as they have been simulated under alike experimental conditions.
-   
-![](Upset_plot_muscat.png)
-*Upset Plot of simulated DE genes per cluster in muscat simulation*  
-   
-![](Upset_plot_correlation_structure.png)
-  
-*Upset Plot of simulated DE genes per cluster in correlation structure simulation*  
-   
 ### TPR vs FDR plot
 
 Moreover, we plot the observed overall true positive rate (TPR) and false discovery rate (FDR) values at 1\%, 5\%, and 10\% FDR cutoffs. Dashed lines represent the desired FDRs. In muscat, counts sum in edgeR method presents the best performance as it reaches the hightest TPR and lowest FDR. Next are the counts sum and logcounts in limma-voom and logcounts mean in edgeR. 
