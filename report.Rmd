@@ -1,7 +1,7 @@
 ---
 title: "Project Report sta426 Course"
 author: "Adriano Martinelli, Chrysa Papadopoulou, Iliana Papadopoulou" 
-date: "10/01/2020"
+date: "13/01/2020"
 output: html_document
 ---
 
@@ -554,6 +554,10 @@ We applied four methods in total to the simulated data sets, including
 
 In each case DE genes are retrieved when adj. p-value < 0.05. For each method we calculate the ground truth, which is included in the category column of the metadata of our sce object. [5]
 
+### Simulated DE genes per cluster
+
+In the following upset plots we observe the number of genes that were simulated as differentially expressed per cluster for the muscat and for the correlation structure. Apparenty, both frameworks present similar results as they have been simulated under alike experimental conditions.
+   
 ### TPR vs FDR plot
 
 Moreover, we plot the observed overall true positive rate (TPR) and false discovery rate (FDR) values at 1\%, 5\%, and 10\% FDR cutoffs. Dashed lines represent the desired FDRs. In muscat, counts sum in edgeR method presents the best performance as it reaches the hightest TPR and lowest FDR. Next are the counts sum and logcounts in limma-voom and logcounts mean in edgeR. 
