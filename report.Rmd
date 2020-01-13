@@ -554,16 +554,6 @@ We applied four methods in total to the simulated data sets, including
 
 In each case DE genes are retrieved when adj. p-value < 0.05. For each method we calculate the ground truth, which is included in the category column of the metadata of our sce object. [5]
 
-### DE genes per cluster
-All methods share the same upset plots. We observe that Neuronal_inhibit cluster detects fewer DE genes compared to Neuronal_excit cluster. However, the number of DE genes that correlation structure finds in each cluster individually is higher compared to muscat.
-   
-![](Upset_plot_muscat.png)
-*Upset Plot of DE genes per cluster in muscat simulation*  
-   
-![](Upset_plot_correlation_structure.png)
-  
-*Upset Plot of DE genes per cluster in correlation structure simulation*  
-   
 ### TPR vs FDR plot
 
 Moreover, we plot the observed overall true positive rate (TPR) and false discovery rate (FDR) values at 1\%, 5\%, and 10\% FDR cutoffs. Dashed lines represent the desired FDRs. In muscat, counts sum in edgeR method presents the best performance as it reaches the hightest TPR and lowest FDR. Next are the counts sum and logcounts in limma-voom and logcounts mean in edgeR. 
@@ -603,9 +593,9 @@ g4
 ```
 
 ### Ranking of genes 
-Here he compare the ranking of all genes according to their p.adj.loc value (high ranking corresponds to low p-value, i.e. gene with rank 1 has a lower p.adj than a gene ranked 10) for the method _counts_sum_edgeR_. In the first row we plot the ranks of each gene for both methods against each other. In the second row we plot the p.adj value of each gene for both methods against each other.
+Here we compare the ranking of all genes according to their p.adj.loc value (high ranking corresponds to low p-value, i.e. gene with rank 1 has a lower p.adj than a gene ranked 10) for the method _counts_sum_edgeR_. In the first row we plot the ranks of each gene for both methods against each other. In the second row we plot the p.adj value of each gene for both methods against each other.
 
-We can see that even though there are regions in which the relative ranking of both methods correspond quite well (indicated by a diagonal line), the interesting region (top 600 - 800 genes) appear as a scatter. Moreover we can see that for both cell types a gene with with a high ranking in the correlation simulation (sim_order) has a high predominantly a high ranking in the muscat simulation as well. On the other hand a gene with high ranking in the muscat simulation can have an arbitrary rank in the correlation simulation. To see this observe that the scattered area always extends along the whole x-axis but not the y-axis. 
+We can see that even though there are regions in which the relative ranking of both methods correspond quite well (indicated by a diagonal line), the interesting region (top 600 - 800 genes) appear as a scatter. Moreover we can see that for both cell types a gene with with a high ranking in the correlation simulation (sim_order) has predominantly a high ranking in the muscat simulation as well. On the other hand a gene with high ranking in the muscat simulation can have an arbitrary rank in the correlation simulation. To see this observe that the scattered area always extends along the whole x-axis but not the y-axis. 
 ```{r}
 q1 = qplot(x = sim_order_e, y = muscat_order_e) +
   labs(title = "Ranking of genes, Neuronal_excit",
@@ -655,7 +645,7 @@ In this section we list the main responsibilities of each group participant.
 
 * Chrysa Papadopoulou: Preprocessing-Exploratory Analysis, DE Analysis, Visualisation
 * Iliana Papadopoulou: Preprocessing-Exploratory Analysis, DE Analysis, Visualisation
-* Adriano Martinelli: Simulation (as implemented in R package sta426), DockerFile
+* Adriano Martinelli: Simulation (as implemented in R package sta426), Simulation Evaluation, DockerFile
 
 # References
 
