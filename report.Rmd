@@ -1,7 +1,7 @@
 ---
 title: "Project Report sta426 Course"
 author: "Adriano Martinelli, Chrysa Papadopoulou, Iliana Papadopoulou" 
-date: "10/01/2020"
+date: "13/01/2020"
 output: html_document
 ---
 
@@ -554,15 +554,16 @@ We applied four methods in total to the simulated data sets, including
 
 In each case DE genes are retrieved when adj. p-value < 0.05. For each method we calculate the ground truth, which is included in the category column of the metadata of our sce object. [5]
 
-### DE genes per cluster
-All methods share the same upset plots. We observe that Neuronal_inhibit cluster detects fewer DE genes compared to Neuronal_excit cluster. However, the number of DE genes that correlation structure finds in each cluster individually is higher compared to muscat.
+### Simulated DE genes per cluster
+
+In the following upset plots we observe the number of genes that were simulated as differentially expressed per cluster for the muscat and for the correlation structure. Apparenty, both frameworks present similar results as they have been simulated under alike experimental conditions.
    
 ![](Upset_plot_muscat.png)
-*Upset Plot of DE genes per cluster in muscat simulation*  
+*Upset Plot of simulated DE genes per cluster in muscat simulation*  
    
 ![](Upset_plot_correlation_structure.png)
   
-*Upset Plot of DE genes per cluster in correlation structure simulation*  
+*Upset Plot of simulated DE genes per cluster in correlation structure simulation*  
    
 ### TPR vs FDR plot
 
